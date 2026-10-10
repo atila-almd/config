@@ -69,7 +69,7 @@ func testNotification(id int32, timestamp int64) map[string]dbus.Variant {
 func TestDunstLoadsExactBoundedSanitizedContract(t *testing.T) {
 	timestamp := time.Now().UnixMicro()
 	first := testNotification(7, timestamp)
-	first["appname"] = dbus.MakeVariant("app\x00name")
+	first["appname"] = dbus.MakeVariant("app\x01name")
 	first["summary"] = dbus.MakeVariant(strings.Repeat("s", maxDunstTextBytes+64))
 	first["body"] = dbus.MakeVariant("body\r\ntext\x01")
 	first["urgency"] = dbus.MakeVariant("CRITICAL")
@@ -210,5 +210,13 @@ func awaitNotificationChange(t *testing.T, changes <-chan Change) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("no notification invalidation")
+	}
+}
+
+// NUL and invalid UTF-8 cannot cross D-Bus STRING transport. Exercise those
+// defensive decoder inputs at the sanitizer seam rather than in a wire reply.
+func TestDunstSanitizerRejectsInvalidText(t *testing.T) {
+	if got := sanitizeDunstText("app\x00\xffname", maxDunstTextBytes); got != "appname" {
+		t.Fatalf("sanitized invalid text=%q", got)
 	}
 }
