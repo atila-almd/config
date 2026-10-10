@@ -34,7 +34,7 @@ desktop() {
 }
 development() {
   local command
-  for command in workstation-project workstation-agent session-terminal mise podman systemctl systemd-run; do check_command "$command"; done
+  for command in workstation-project workstation-agent session-terminal codex mise podman systemctl systemd-run; do check_command "$command"; done
   if [[ -x /usr/bin/time ]]; then
     printf 'available: GNU time executable\n'
   else

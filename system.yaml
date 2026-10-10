@@ -199,6 +199,8 @@ packages:
   - 'zsh'
 
   # Development and containers
+  # Owner-selected terminal coding agent; authentication remains Local State.
+  - 'openai-codex'
   - 'lazydocker'
   - 'mise'
   - 'podman'

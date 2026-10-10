@@ -21,7 +21,7 @@ cat > "$temporary/bin/tesseract" <<'EOF'
 printf 'List of languages:\neng\n'
 [[ "${DOCTOR_MISSING_POR:-no}" == yes ]] || printf 'por\n'
 EOF
-for command in hyprctl session-terminal workstation-project workstation-agent mise podman systemd-run workstation-capture workstation-record workstation-media workstation-remind wf-recorder grim slurp zbarimg qrencode ffmpeg magick wl-copy notify-send; do
+for command in hyprctl session-terminal workstation-project workstation-agent codex mise podman systemd-run workstation-capture workstation-record workstation-media workstation-remind wf-recorder grim slurp zbarimg qrencode ffmpeg magick wl-copy notify-send; do
   printf '#!/usr/bin/env bash\nexit 93\n' > "$temporary/bin/$command"
 done
 for command in lsblk findmnt df; do
@@ -36,6 +36,7 @@ EOF
 chmod +x "$temporary/bin/"*
 export PATH="$temporary/bin:$PATH" DOCTOR_TEST_LOG="$temporary/log"
 bash "$repo_dir/bin/workstation-doctor" all > "$temporary/output"
+grep -Fxq 'available: codex' "$temporary/output"
 grep -Fq 'provider tokens/quota: unavailable' "$temporary/output"
 grep -Fq 'OCR language available: por' "$temporary/output"
 : > "$temporary/log"

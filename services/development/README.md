@@ -119,6 +119,43 @@ the project's own documentation. Portless and rootless Podman Compose remain
 the owners of development routing and container lifecycle; this helper only
 chooses a directory and starts an explicitly requested argv.
 
+## Codex CLI
+
+The owner-selected Codex CLI serves the existing project coding-agent workflow.
+The common System Definition declares Arch's
+[`openai-codex` package](https://archlinux.org/packages/extra/x86_64/openai-codex/),
+which provides `codex` for both Machine Profiles. Installation and updates use
+the normal bootstrap/rebuild path. Its package is Apache-2.0 licensed.
+
+After rebuilding, run these commands in the blendOS account's terminal:
+
+```sh
+codex --version
+codex login
+codex login status
+workstation-project agent workstation -- codex
+# Or, from an existing terminal, use the registered project and supervised scope:
+workstation-agent run workstation -- codex
+```
+
+Replace `workstation` with your registered project ID. Sign-in is an explicit
+personal step following the [official OpenAI authentication guide](https://learn.chatgpt.com/docs/auth).
+Keep account settings, credentials and conversation/run state in the upstream
+`CODEX_HOME` directory (normally `~/.codex`) outside the checkout; cached
+credentials may instead live in the OS credential store. Bootstrap does not
+authenticate, select a model or change Codex permissions. Accidental `.codex/`
+copies at this repository's root are ignored.
+
+Codex runs on demand in the project terminal. The existing agent wrapper binds
+its scope to the managed graphical session and records resource facts without
+prompts or credentials; there is no Codex autostart service. The development
+doctor checks command availability without launching Codex or reading its
+authentication state. To accept integration after deployment, verify the
+version/sign-in checks, one registered-project run, its agent status, and that
+the scope ends on logout. Until then the contract remains **Planned** for both
+profiles. See the [official CLI guide](https://learn.chatgpt.com/docs/codex/cli)
+for upstream usage.
+
 ## Runtimes and containers
 
 Use project-owned Mise configuration for each project's runtime requirements.

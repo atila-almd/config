@@ -35,6 +35,7 @@ __pycache__/
 # Accidental copies of account key stores, private caches and device state.
 /.ssh/
 /.gnupg/
+/.codex/
 /.local/state/
 /.local/share/keyrings/
 /.cache/

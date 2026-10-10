@@ -194,7 +194,8 @@ provisions account runtimes; `--system-only` only stages the definition. See
 
 Remaining manual work includes installed validators, display/GPU and Ethernet
 checks, audio/microphone, login/keyring/portals, lock/sleep and visual acceptance;
-Git identities; Tailscale authentication; RustDesk pairing; and optional backup
+Git identities; [Codex CLI sign-in](services/development/README.md#codex-cli);
+Tailscale authentication; RustDesk pairing; and optional backup
 storage, credentials and timer activation. No backup timer is enabled until the
 owner explicitly configures it.
 
@@ -285,6 +286,7 @@ reject a stale table.
 | shortcut-reference | Navigate the desktop and open applications | hyprland → workstation-keybindings | hypr:binding | Planned | Source implementation present; installed workflow acceptance pending; unverified on hardware; [evidence](services/desktop/CHECKLIST.md) |
 | project-launcher | Work on projects and run coding agents | ghostty → workstation-project | hypr:binding | Planned | Source implementation present; installed workflow acceptance pending; unverified on hardware; [evidence](services/desktop/CHECKLIST.md) |
 | agent-status | Work on projects and run coding agents | time → workstation-agent | helper:workstation-agent | Planned | Source implementation present; installed workflow acceptance pending; unverified on hardware; [evidence](services/development/README.md) |
+| codex-cli | Work on projects and run coding agents | openai-codex → codex | command:codex | Planned | Declared for both profiles; local sign-in and supervised project/session acceptance pending; unverified on hardware; [evidence](services/development/README.md#codex-cli) |
 | workstation-diagnosis | Inspect and maintain the workstation | systemd → workstation-doctor | helper:workstation-doctor | Planned | Source implementation present; installed workflow acceptance pending; unverified on hardware; [evidence](services/recovery/README.md) |
 | file-backup | Back up and recover personal files | restic → workstation-backup | helper:workstation-backup | Planned | Source implementation present; installed workflow acceptance pending; unverified on hardware; [evidence](services/recovery/README.md) |
 | update-checkpoints | Inspect and maintain the workstation | blend → workstation-maintain | helper:workstation-maintain | Planned | Source implementation present; installed workflow acceptance pending; unverified on hardware; [evidence](services/recovery/README.md) |
@@ -381,6 +383,7 @@ reject a stale table.
 | shortcut-reference | Navigate the desktop and open applications | hyprland → workstation-keybindings | hypr:binding | Planned | Source implementation present; installed workflow acceptance pending; [evidence](services/desktop/CHECKLIST.md) |
 | project-launcher | Work on projects and run coding agents | ghostty → workstation-project | hypr:binding | Planned | Source implementation present; installed workflow acceptance pending; [evidence](services/desktop/CHECKLIST.md) |
 | agent-status | Work on projects and run coding agents | time → workstation-agent | helper:workstation-agent | Planned | Source implementation present; installed workflow acceptance pending; [evidence](services/development/README.md) |
+| codex-cli | Work on projects and run coding agents | openai-codex → codex | command:codex | Planned | Declared for both profiles; local sign-in and supervised project/session acceptance pending; [evidence](services/development/README.md#codex-cli) |
 | workstation-diagnosis | Inspect and maintain the workstation | systemd → workstation-doctor | helper:workstation-doctor | Planned | Source implementation present; installed workflow acceptance pending; [evidence](services/recovery/README.md) |
 | file-backup | Back up and recover personal files | restic → workstation-backup | helper:workstation-backup | Planned | Source implementation present; installed workflow acceptance pending; [evidence](services/recovery/README.md) |
 | update-checkpoints | Inspect and maintain the workstation | blend → workstation-maintain | helper:workstation-maintain | Planned | Source implementation present; installed workflow acceptance pending; [evidence](services/recovery/README.md) |

@@ -99,6 +99,11 @@ while IFS=$'\t' read -r capability package executable integration workflows prof
   fi
 
   case "$integration" in
+    command:*)
+      if [[ "${integration#command:}" != "$executable" ]]; then
+        fail "$capability command integration must name executable '$executable'"
+      fi
+      ;;
     hypr:var:*)
       variable="${integration##*:}"
       hypr_variables[$variable]="$executable"

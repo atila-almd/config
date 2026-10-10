@@ -51,6 +51,7 @@ Manual after provisioning:
   - Log in through Workstation, then run the installed validators in README.md.
   - Verify physical outputs/GPU, audio/microphone, networking, lock/sleep and portals.
   - Configure Git identities with git-profile, authenticate Tailscale, pair RustDesk.
+  - Sign in to Codex CLI locally; see services/development/README.md.
   - Configure backup storage/credentials and enable its timer only when desired.
   - Review Capability status: source checks and VM evidence do not pass hardware.
 Local State: $state_home/blendos-workstation/

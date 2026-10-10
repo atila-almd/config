@@ -15,6 +15,14 @@ fixture="$test_dir/repository"
 mkdir -p -- "$fixture"
 bash "$repo_dir/scripts/copy-source-fixture.sh" "$repo_dir" "$fixture"
 
+sed -i 's/command:codex/command:missing-tool/' "$fixture/components.tsv"
+if output="$(bash "$fixture/scripts/validate-component-contract.sh" 2>&1)"; then
+  fail 'component contract accepted a command integration naming another executable'
+fi
+grep -Fq "codex-cli command integration must name executable 'codex'" <<<"$output" ||
+  fail 'mismatched command integration produced the wrong validation error'
+cp -- "$repo_dir/components.tsv" "$fixture/components.tsv"
+
 hypr_config="$fixture/.config/hypr/hyprland.lua"
 sed -i '/hl.bind(mainMod \.\. " + CTRL + L", hl.dsp.exec_cmd("session-lock"))/d' "$hypr_config"
 
