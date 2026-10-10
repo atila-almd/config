@@ -1,5 +1,33 @@
 # Workstation implementation state
 
+## Release reconciliation (2026-10-10)
+
+The sanitized `main` contains the current working implementation, including all
+37 managed dirty/untracked changes retained in its fresh root. The
+[working-change audit](docs/audits/working-change-retention.md) records each
+path; the original checkout and its uncommitted work remain intact. VM files
+moved to the explicit `vm` profile and Local State stays outside source.
+
+The release source checks passed all 40 repository scripts in WSL and again
+from a clean Linux clone. The prior notification-test blocker below was an
+invalid NUL-containing D-Bus mock reply; the fixture now uses wire-valid input
+and tests NUL/invalid UTF-8 at the sanitizer seam. This later source evidence
+supersedes the older source-suite failure and untested-source statements below,
+while preserving every installed/visual/hardware acceptance limit.
+
+The working-change audit also found a stale locker identity-mark default under
+immutable `/usr/share`; it now consumes the same `/etc` identity bundle as the
+greeter/installer, and identity validation includes the locker. Installed
+branding inspection remains pending. The existing native RustDesk artifact on
+the preparation machine was rechecked against its accepted SHA-256; deployment
+requires copying/publishing it into the target account. The current remote
+remains private, with old history retained on `quickshell-shell` and in an
+external verified bundle.
+
+[BACKLOG.md](BACKLOG.md#current-pending-work-2026-10-10) owns the current ordered
+acceptance/setup/recovery list. No current physical installation, native current
+Island/greeter render or installed completion is claimed by these source checks.
+
 ## Plan 010 source checkpoint (2026-09-13)
 
 The source now replaces Ly with greetd as the sole graphical-login owner. Its
@@ -24,7 +52,9 @@ Focused source evidence from this Windows/WSL takeover:
   native Quickshell lint and inspected greeter PNGs require the blendOS
   Quickshell package and are not claimed here.
 
-The complete repository suite is not yet green in this WSL. With temporary Go
+At the Plan 010 checkpoint, the complete repository suite was not yet green.
+The later release reconciliation above records the resolved source blocker.
+With temporary Go
 1.27.1 and resvg 0.48.1 toolchains, all checks through
 `test-workstation-controls.sh` pass; `test-workstation-data.sh` then stops at
 the existing D-Bus mock because its `NotificationListHistory` reply contains
@@ -55,8 +85,9 @@ That full run predates the two guest corrections: success text now says
 “Change requested,” and output focus uses the canonical native focused-monitor
 identity. The latter also adds native fixture assertions. Guest audio volume/mute
 and fresh output-focus observations support these changes; the latest bytes have
-**not** had another complete suite. No further checks were run after the owner's
-stop. Remaining installed acceptance is unverified, not passed; the
+**not** had another complete suite at this checkpoint. Later release source
+checks are recorded above; no installed acceptance is added by that rerun.
+Remaining installed acceptance is unverified, not passed; the
 [Plan 007 checklist](services/desktop/CHECKLIST.md#plan-007-implementation-checkpoint)
 records that boundary. Plan 006 stays complete, and RustDesk stays deferred.
 

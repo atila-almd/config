@@ -169,7 +169,7 @@ this machine's real data is protected.
 ## Checkpointed system updates
 
 Deploy the declared Restic package and helpers through the normal
-[installation procedure](../../README.md#install-from-the-shared-development-tree).
+[installation procedure](../../README.md#requirements-and-bootstrap).
 Then configure a repository, perform a manual backup/check/restore and inspect
 the restored content before relying on update checkpoints:
 
@@ -228,7 +228,7 @@ git restore --source="$revision" --worktree -- .config/hypr/hyprland.lua
 
 The final command replaces only that working-tree file. Deploy managed files
 using the installation guide and run the owning validator. Installer-displaced
-files use the [installer's timestamped backups](../../README.md#install-from-a-clone);
+files use the [installer's timestamped backups](../../README.md#local-state-and-reruns);
 those backups are not OS snapshots. A deleted personal file can be recovered
 with `workstation-backup restore` even after its original source path is gone.
 

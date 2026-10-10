@@ -9,6 +9,27 @@ This repository is the source of Managed Configuration. It currently defines a
 custom blendOS environment; it does not yet build or release a standalone
 distribution.
 
+## What is missing and pending
+
+The current desktop, control center, launcher, notification/OSD and graphical
+login source is present. The next work is provisioning and installed acceptance:
+
+- Complete the physical SSD install and bootstrap using the already built,
+  reviewed RustDesk package; validate NVIDIA/display, Ethernet, audio and sleep.
+- Accept current Island/control-center behavior, launcher, notifications/OSD,
+  greetd/keyring/portals and matching login/lock visuals on blendOS.
+- Supply personal Git/project/application state and backup storage/credentials;
+  test real daily workflows and restore/recovery.
+- Resolve the recorded RustDesk remote-capture failure after the non-RustDesk
+  plans are ready. Retained legacy history must be handled before public visibility.
+
+[BACKLOG.md](BACKLOG.md#current-pending-work-2026-10-10) owns the ordered gaps,
+completion evidence and deferrals. The [Capability table](#capability-status)
+records per-component acceptance; **Planned** can mean implemented source whose
+installed behavior is still unverified. All 37 managed changes from the original
+dirty tree are included in the fresh root; see the
+[working-change retention audit](docs/audits/working-change-retention.md).
+
 ## Documentation map
 
 Each document has one audience and one responsibility:
