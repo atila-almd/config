@@ -94,6 +94,17 @@ while IFS=$'\t' read -r capability package executable integration workflows prof
     capability_wants+=" $(sed -n 's/^Wants=//p' "$capability_unit_dir/20-machine-profile.conf" 2>/dev/null || true)"
   fi
 
+  # Deferred contracts keep missing workflows visible without requiring their
+  # package, service or executable on a fresh installation.
+  if [[ "$integration" == deferred:system-service:* ]]; then
+    [[ "$vm_status" == Blocked && "$physical_status" == Blocked ]] ||
+      fail "$capability deferred integration must remain Blocked for both profiles"
+    if package_declared "$package" || system_service_declared "${integration#deferred:system-service:}"; then
+      fail "$capability deferred package/service must not be enabled in the System Definition"
+    fi
+    continue
+  fi
+
   if ! package_declared "$package"; then
     fail "$capability requires undeclared package '$package'"
   fi

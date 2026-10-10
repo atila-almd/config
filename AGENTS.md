@@ -89,6 +89,8 @@ feature.
   integration point. It also owns workflow/profile scope, acceptance status,
   evidence and adaptation justification; its generated README tables must stay
   synchronized. It is the component contract, not a general package list.
+  Explicit `deferred:` integrations remain Blocked and preserve future workflow
+  visibility without installing or validating an active package/service.
 - `.config/hypr/hyprland.lua` owns compositor behavior, input, interaction, and
   desktop keybindings.
 - `.config/systemd/user/` owns session-bound and independent user-service
@@ -188,6 +190,9 @@ benchmarking or measurement gate is part of this work.
 - UFW is the host firewall. The managed baseline denies incoming and routed
   traffic, allows outgoing traffic, and permits authenticated tailnet ingress
   on `tailscale0`. RustDesk receives no public inbound exception.
+  Its custom package, system service and loopback package repository are
+  postponed from both default profiles; retained build tooling does not make
+  them bootstrap or update prerequisites.
 - Git identity values and directory mappings are Local State managed through
   `git-profile`; they must never be committed as Managed Configuration.
 - Project registrations and agent run records are Local State. Agent commands

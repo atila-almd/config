@@ -1,7 +1,26 @@
 # RustDesk unattended Wayland package
 
-The workstation selects the distinct `rustdesk-unattended-wayland` native Arch
-package for root-service DRM capture and remote display wake. The source commit
+## Installation postponed
+
+The owner postponed custom RustDesk installation. Neither default Machine
+Profile declares its package, `rustdesk.service` or `workstation-local`
+repository. `./bootstrap physical` and `./bootstrap vm` proceed without a
+native archive, local package database or package server; the former
+`--rustdesk-package` option is removed. Existing artifact files remain Local
+State and are retained for later work. No installed guest is changed by these
+source edits.
+
+The Blocked Component Contract preserves the pending remote-access workflow
+as `deferred:system-service:rustdesk.service`; installed checks exclude it.
+Reactivation requires a deliberate System Definition/contract change declaring
+the package, service and repository together, with a reviewed artifact and
+fresh installed acceptance. It is not part of the current physical bootstrap.
+Diagnosis still follows the [owner's sequencing](../../docs/plans/README.md#owner-directed-rustdesk-sequencing-2026-09-12).
+
+## Retained package implementation
+
+The retained `rustdesk-unattended-wayland` native Arch package implements
+root-service DRM capture and remote display wake. The source commit
 and vcpkg commit are owned by [PKGBUILD](PKGBUILD). The pinned upstream `build.py`
 owns the libdrmtap commit and ABI gate. Credentials, pairing and RustDesk settings
 remain Local State. The existing firewall policy still applies.
@@ -13,7 +32,8 @@ features directly, stages the Flutter bundle as a native pacman archive, and
 reuses upstream's library builder and artifact checks. No Debian package is
 installed or converted. The existing root service loads the private library at
 `/usr/lib/rustdesk/libdrmtap.so.0`; no privileged helper or capability grant is
-added. The service starts at boot; its desktop launcher opens the client.
+added. When explicitly installed/enabled, the service starts at boot and its
+desktop launcher opens the client.
 
 The Rust feature set is `flutter,drm,drm-wake,hwcodec,unix-file-copy-paste`, matching
 the selected commit's `build-rustdesk-linux-drm` workflow. Hardware codec and
@@ -61,11 +81,10 @@ archive to the blendOS account and run `publish` there. That account needs
 the compiled DRM/wake markers, the EGL library and the service/launcher payload.
 The build additionally checks the upstream runtime ABI gate.
 
-For fresh installation, [bootstrap](../../README.md#requirements-and-bootstrap)
-accepts `--rustdesk-package` and manages this loopback server during its rebuild.
-For direct maintenance rebuilds, keep the foreground server running during `sudo akshara update` in another
-terminal. `system.yaml` declares the `workstation-local` pacman repository at
-`http://127.0.0.1:18789`; the helper serves its actual database and package from
+These commands are retained tooling for later reactivation, not fresh-install
+steps. The current `system.yaml` has no `workstation-local` repository. After an
+explicit reactivation declares it at `http://127.0.0.1:18789`, keep the foreground
+server running during each Akshara rebuild. The helper serves its database and package from
 `${XDG_STATE_HOME:-$HOME/.local/state}/blendos-workstation/package-repo`.
 Akshara's build chroot can access this loopback listener without access to host
 home directories. Its standard package installation happens before service

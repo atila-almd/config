@@ -49,7 +49,7 @@ service_declared() {
 }
 
 package_declared ufw || fail "system.yaml does not declare package 'ufw'"
-for service in ufw tailscaled rustdesk.service; do
+for service in ufw tailscaled; do
   service_declared "$service" || fail "system.yaml does not declare service '$service'"
 done
 

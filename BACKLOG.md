@@ -14,22 +14,22 @@ unverified source as an absent implementation.
 
 | Order | Gap / pending item | Kind | Completion evidence / next action | Owner |
 | --- | --- | --- | --- | --- |
-| 1 | Physical SSD install and selected-profile rebuild/deployment | Provisioning / unverified on hardware | Install blendOS v4 on the selected SSD, check Secure Boot requirements, copy/publish the reviewed RustDesk artifact, run physical bootstrap through rebuild/reboot/deployment; confirm installed package/session contracts | [Bootstrap and profiles](README.md#requirements-and-bootstrap) |
+| 1 | Physical SSD install and selected-profile rebuild/deployment | Provisioning / unverified on hardware | Install blendOS v4 on the selected SSD, check Secure Boot requirements, run physical bootstrap through rebuild/reboot/deployment without a custom RustDesk package; confirm installed package/session contracts | [Bootstrap and profiles](README.md#requirements-and-bootstrap) |
 | 2 | Current Island and control-center acceptance (Plan 007 plus later Island replacement) | Installed / visual acceptance | Native Quickshell lint and inspected bar/card/scaled/keyboard renders; actual per-output/bar/tray/workspace lifecycle; audio/mic/default-device switching, media, Ethernet, themes/wallpaper with an active locker, settings reset/export, recording and deliberate power journeys | [Desktop checklist](services/desktop/CHECKLIST.md#plan-007-implementation-checkpoint) |
 | 3 | Launcher, notification history/DND and OSD (Plans 008/009) | Installed / visual acceptance | Super+R/Super+Space, UWSM application launch, literal file paths, calculator copy, Escape/focus and missing backend; Dunst restart/DND/actions and volume/microphone feedback | [Desktop checklist](services/desktop/CHECKLIST.md#plan-008-launcher-checkpoint) |
 | 4 | greetd/shared authentication and portals (Plan 010) | Installed / visual acceptance | Successful/failed login and unlock, logout/relogin, keyring unlock, TTY recovery, assets with home/share unavailable, file selection/screen sharing, matching login/lock/desktop pixels and 200% keyboard use | [Desktop checklist](services/desktop/CHECKLIST.md#plan-010-graphical-identitylogin-source-checkpoint) |
 | 5 | Physical NVIDIA/outputs, wired Ethernet, audio/mic and secure sleep | Hardware acceptance | Driver/module and display/hotplug checks, real audio routing, Ethernet, lock coverage on every output, guarded suspend/resume; VM results do not pass these | [Profiles](README.md#machine-profiles), [desktop checklist](services/desktop/CHECKLIST.md) |
 | 6 | Personal state and daily workflows | Owner setup / installed acceptance | Configure Git identities/mappings, register real projects/agents, complete launch/container/Portless and capture/paste/record/OCR/reminder/sharing journeys; authenticate Tailscale and configure requested applications | [Development](services/development/README.md), [productivity](services/productivity/README.md), [Local State](README.md#local-state-and-reruns) |
 | 7 | Backup and whole-machine recovery | Owner decision / unresolved recovery contract | Choose actual backup storage/sources/credentials, verify representative restore and opt-in timer, rehearse update/off-device restoration; inspect the secondary SSD filesystem/boot layout before defining boot recovery | [Recovery guide](services/recovery/README.md#verification-still-required-on-the-target) |
-| 8 | RustDesk locked/boot-greeter access | Known defect / owner-directed deferral | Existing native artifact is built and verified; recorded locked capture/input/wake failure remains. Resume diagnostics/acceptance after non-RustDesk Plans 005–010 are ready | [Recorded failure](services/rustdesk/README.md#known-capture-failure--deferred-by-owner-2026-09-12), [sequencing](docs/plans/README.md#owner-directed-rustdesk-sequencing-2026-09-12) |
+| 8 | RustDesk installation and locked/boot-greeter access | Known defect / owner-directed deferral | Package/service/repository excluded from default bootstrap; existing native artifact retained. Reactivate deliberately and resume diagnostics/acceptance after non-RustDesk Plans 005–010 are ready | [Recorded failure](services/rustdesk/README.md#known-capture-failure--deferred-by-owner-2026-09-12), [sequencing](docs/plans/README.md#owner-directed-rustdesk-sequencing-2026-09-12) |
 | 9 | Public visibility | Owner decision | `main` is sanitized; the retained legacy `quickshell-shell` branch still carries personal metadata. Decide its custody/removal before changing the current private visibility | [History and recovery](README.md#history-and-recovery) |
 
 The 33 MB native RustDesk archive already exists on the preparation machine;
 its SHA-256 matches the accepted artifact recorded in [STATE.md](STATE.md).
-Bootstrap needs that artifact published on the target, rather than another
-build when the existing reviewed archive is reused. Copy instructions and
-validation belong to the [package guide](services/rustdesk/README.md#build-and-publish).
-Remote acceptance remains deferred even when the package is installed.
+Keep it for the postponed RustDesk workflow; it is not a bootstrap prerequisite.
+Retained build/publication tooling and later reactivation constraints belong
+to the [package guide](services/rustdesk/README.md#build-and-publish).
+Remote acceptance remains deferred.
 
 ## Implementation and deferral boundaries
 

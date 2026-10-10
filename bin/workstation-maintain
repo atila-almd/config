@@ -41,7 +41,7 @@ lock_state() {
 }
 preflight() {
   require_blendos
-  for command in akshara workstation-backup jq flock systemctl timeout; do need "$command"; done
+  for command in akshara workstation-backup jq flock systemctl; do need "$command"; done
   [[ ! -e "$pending" && ! -L "$pending" ]] || fail 'an update record is pending; inspect status before another update'
   printf 'Storage for update staging (no automatic space guarantee):\n'
   df -h -- / /boot "$HOME"
@@ -56,7 +56,11 @@ preflight() {
 }
 check_local_package_repository() {
   local repository_url repository_port status
-  repository_url="$(python3 -c 'import sys,yaml; print(next(r["repo-url"] for r in yaml.safe_load(open(sys.argv[1]))["package-repos"] if r["name"]=="workstation-local"))' "$machine_state/system.yaml")"
+  repository_url="$(python3 -c 'import sys,yaml; print(next((r["repo-url"] for r in yaml.safe_load(open(sys.argv[1])).get("package-repos",[]) if r["name"]=="workstation-local"),""))' "$machine_state/system.yaml")"
+  # Deferred RustDesk is absent from the current System Definition. Retained
+  # artifacts/database files alone never make a package server a prerequisite.
+  [[ -n "$repository_url" ]] || return 0
+  need timeout
   [[ "$repository_url" =~ ^http://127\.0\.0\.1:([0-9]+)$ ]] ||
     fail 'system.yaml must configure the local package repository on loopback'
   repository_port="${BASH_REMATCH[1]}"

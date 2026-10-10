@@ -23,6 +23,25 @@ grep -Fq "codex-cli command integration must name executable 'codex'" <<<"$outpu
   fail 'mismatched command integration produced the wrong validation error'
 cp -- "$repo_dir/components.tsv" "$fixture/components.tsv"
 
+# An inactive contract must stay visibly blocked and must not quietly install.
+sed -i '/^remote-desktop\t/s/Blocked/Integrated/g' "$fixture/components.tsv"
+if output="$(bash "$fixture/scripts/validate-component-contract.sh" 2>&1)"; then
+  fail 'component contract accepted an Integrated deferred capability'
+fi
+grep -Fq 'remote-desktop deferred integration must remain Blocked' <<<"$output" ||
+  fail 'deferred status produced the wrong validation error'
+if python3 "$fixture/scripts/capability-status.py" --check >/dev/null 2>&1; then
+  fail 'capability status accepted an Integrated deferred capability'
+fi
+cp -- "$repo_dir/components.tsv" "$fixture/components.tsv"
+sed -i "/^packages:$/a\  - 'rustdesk-unattended-wayland'" "$fixture/system.yaml"
+if output="$(bash "$fixture/scripts/validate-component-contract.sh" 2>&1)"; then
+  fail 'component contract accepted installing a deferred package'
+fi
+grep -Fq 'remote-desktop deferred package/service must not be enabled' <<<"$output" ||
+  fail 'deferred installation produced the wrong validation error'
+cp -- "$repo_dir/system.yaml" "$fixture/system.yaml"
+
 hypr_config="$fixture/.config/hypr/hyprland.lua"
 sed -i '/hl.bind(mainMod \.\. " + CTRL + L", hl.dsp.exec_cmd("session-lock"))/d' "$hypr_config"
 

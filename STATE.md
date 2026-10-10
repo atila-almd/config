@@ -19,8 +19,11 @@ The working-change audit also found a stale locker identity-mark default under
 immutable `/usr/share`; it now consumes the same `/etc` identity bundle as the
 greeter/installer, and identity validation includes the locker. Installed
 branding inspection remains pending. The existing native RustDesk artifact on
-the preparation machine was rechecked against its accepted SHA-256; deployment
-requires copying/publishing it into the target account. The current remote
+the preparation machine was rechecked against its accepted SHA-256 and is
+retained for later work. The owner subsequently postponed its installation:
+both profiles now exclude its package/service/repository, and bootstrap/update
+preflight requires no artifact or local server. The Blocked contract and build
+tooling remain; see the [RustDesk guide](services/rustdesk/README.md). The current remote
 remains private, with old history retained on `quickshell-shell` and in an
 external verified bundle.
 

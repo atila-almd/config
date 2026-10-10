@@ -3,8 +3,7 @@
 set -Eeuo pipefail
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 temporary="$(mktemp -d)"
-server_pid=''
-trap '[[ -z "$server_pid" ]] || kill "$server_pid" 2>/dev/null || true; rm -rf -- "$temporary"' EXIT
+trap 'rm -rf -- "$temporary"' EXIT
 fixture="$temporary/checkout with spaces"
 mkdir -p "$fixture/scripts" "$fixture/profiles" "$temporary/bin" "$temporary/home"
 cp "$repo_dir/bootstrap" "$fixture/bootstrap"
@@ -57,27 +56,18 @@ expect_failure bash "$fixture/bootstrap" '../physical'
 expect_failure bash "$fixture/bootstrap" unknown
 bash "$fixture/bootstrap" physical --dry-run > "$temporary/output"
 [[ ! -e "$XDG_STATE_HOME" && ! -s "$BOOTSTRAP_LOG" ]]
+grep -Fq 'RustDesk installation and remote-access acceptance are deferred' "$temporary/output"
+! grep -Eq 'MISSING PREREQUISITE:.*(RustDesk|rustdesk)' "$temporary/output"
+expect_failure bash "$fixture/bootstrap" physical --rustdesk-package /unused/package.pkg.tar.zst
 expect_failure env XDG_STATE_HOME="$fixture/local-state" bash "$fixture/bootstrap" vm --dry-run
-# Supply a reviewed-repository fixture and reuse a test-owned loopback server.
-package_repo="$XDG_STATE_HOME/blendos-workstation/package-repo"
-mkdir -p "$package_repo"
-printf 'fixture database\n' > "$package_repo/workstation-local.db"
-port="$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()')"
-sed -i "s/127.0.0.1:18789/127.0.0.1:$port/g" "$fixture/bootstrap"
-python3 -m http.server "$port" --bind 127.0.0.1 --directory "$package_repo" > "$temporary/http.log" 2>&1 &
-server_pid=$!
-for ((attempt=0;attempt<50;attempt++)); do
-  python3 - "$port" <<'PY' >/dev/null 2>&1 && break
-import sys,urllib.request
-urllib.request.urlopen('http://127.0.0.1:'+sys.argv[1]+'/workstation-local.db',timeout=.1)
-PY
-  sleep .05
-done
+# A fresh target has no custom artifact, database, publisher or HTTP server.
 # Failed builds leave no success receipts and may be retried.
 expect_failure env BUILD_STATUS=9 bash "$fixture/bootstrap" physical
 [[ ! -e "$state/pending.sha256" && ! -e "$state/completed.sha256" ]]
 bash "$fixture/bootstrap" physical > "$temporary/output"
 [[ -s "$state/pending.sha256" && "$(cat "$state/profile")" == physical ]]
+[[ ! -e "$XDG_STATE_HOME/blendos-workstation/package-repo" && ! -e "$state/package-server.log" ]]
+! grep -Eq 'rustdesk|workstation-local|package-repos' "$state/system.yaml"
 [[ "$(grep -c '^rebuild$' "$BOOTSTRAP_LOG")" == 2 ]]
 ! grep -q '^install physical $' "$BOOTSTRAP_LOG"
 # Same-boot reruns never deploy or rebuild, including a different requested profile.
@@ -97,4 +87,4 @@ bash "$fixture/bootstrap" vm > "$temporary/output"
 [[ "$(cat "$state/profile")" == vm && -s "$state/pending.sha256" ]]
 [[ "$(grep -c '^rebuild$' "$BOOTSTRAP_LOG")" == 3 ]]
 ! grep -q '^install vm $' "$BOOTSTRAP_LOG"
-printf 'bootstrap protocol tests passed (dry-run, failed rebuild, reboot boundary, rerun, profile switch)\n'
+printf 'bootstrap protocol tests passed (no custom artifact/server, dry-run, failed rebuild, reboot boundary, rerun, profile switch)\n'

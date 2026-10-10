@@ -14,8 +14,8 @@ distribution.
 The current desktop, control center, launcher, notification/OSD and graphical
 login source is present. The next work is provisioning and installed acceptance:
 
-- Complete the physical SSD install and bootstrap using the already built,
-  reviewed RustDesk package; validate NVIDIA/display, Ethernet, audio and sleep.
+- Complete the physical SSD install and bootstrap; validate NVIDIA/display,
+  Ethernet, audio and sleep. RustDesk installation is postponed.
 - Accept current Island/control-center behavior, launcher, notifications/OSD,
   greetd/keyring/portals and matching login/lock visuals on blendOS.
 - Supply personal Git/project/application state and backup storage/credentials;
@@ -89,18 +89,18 @@ available. The v5 alpha System Definition format is not supported by this entry
 point. Install blendOS onto the selected secondary SSD yourself; bootstrap does
 not select, partition or format a disk.
 
-The existing RustDesk integration requires a reviewed native Arch package.
-Follow [its build/publish guide](services/rustdesk/README.md#build-and-publish)
-or supply an existing artifact with `--rustdesk-package`. This is an explicit
-bootstrap prerequisite; the repository contains no binary package or private
-RustDesk credentials. An unconfigured fresh clone can still run dry-run.
+RustDesk installation is postponed for both profiles. Bootstrap requires no
+custom RustDesk archive, local package database or package server. Its retained
+build tooling and unresolved remote-access acceptance are documented in the
+[RustDesk guide](services/rustdesk/README.md). The former `--rustdesk-package`
+option has been removed.
 
 ```sh
 git clone --single-branch --branch main https://github.com/atila-almd/config.git "$HOME/workstation"
 cd "$HOME/workstation"
 ./bootstrap physical --dry-run
 # From a TTY after logging out of the graphical session:
-./bootstrap physical --rustdesk-package /absolute/path/to/rustdesk.pkg.tar.zst
+./bootstrap physical
 # Reboot deliberately after a successful rebuild, then:
 ./bootstrap physical
 ```
@@ -113,8 +113,8 @@ Managed Configuration is linked to it.
 
 Bootstrap validates prerequisites and the profile before staging the composed
 System Definition in Local State. It preserves displaced `/system.yaml` and
-home files, serves the reviewed loopback package repository during
-`sudo akshara update`, and records success only when the rebuild succeeds.
+home files, runs `sudo akshara update`, and records success only when the
+rebuild succeeds.
 It requests a reboot without performing one. The next invocation on another
 boot verifies packages, deploys Managed Configuration, publishes the public
 greeter identity bundle, and enables Session Components for the next deliberate
@@ -160,13 +160,13 @@ values from the development machine.
 
 | State | Created by / setup |
 | --- | --- |
-| `machine/` | Bootstrap: selected profile, rendered System Definition, rebuild/reboot receipts and package server log |
+| `machine/` | Bootstrap: selected profile, rendered System Definition and rebuild/reboot receipts |
 | `backups/` | Installer: timestamped copies of displaced configuration |
 | `git/` | `git-profile`: personal identities and directory mappings; see [Git identity profiles](#git-identity-profiles) |
 | `theme/` | Theme activation: generated releases, selection and wallpaper indexes |
 | `projects/`, `agents/` | Explicit project registration and agent runs; [development guide](services/development/README.md) |
 | Backup and maintenance records | Explicit configuration/operations; [recovery guide](services/recovery/README.md) |
-| `package-repo/` | Reviewed native RustDesk artifact publication; [RustDesk guide](services/rustdesk/README.md) |
+| `package-repo/` | Retained/deferred RustDesk artifacts; not required or created by bootstrap; [RustDesk guide](services/rustdesk/README.md) |
 | Application credentials, SSH/GPG keys, tailnet/RustDesk identity | Upstream application configuration and key stores; create/authenticate locally, never copy into managed source |
 
 The ignored `local/` directory is optional operator input, not automatically
@@ -197,7 +197,7 @@ provisions account runtimes; `--system-only` only stages the definition. See
 Remaining manual work includes installed validators, display/GPU and Ethernet
 checks, audio/microphone, login/keyring/portals, lock/sleep and visual acceptance;
 Git identities; [Codex CLI sign-in](services/development/README.md#codex-cli);
-Tailscale authentication; RustDesk pairing;
+Tailscale authentication;
 [ZapFast phone pairing](services/messaging/README.md); and optional backup
 storage, credentials and timer activation. No backup timer is enabled until the
 owner explicitly configures it.
@@ -210,6 +210,8 @@ observed installation still lacks full integration acceptance; **Integrated**
 requires installed, reachable, lifecycle-aware and default-consistent behavior
 under [CONTEXT.md](CONTEXT.md); **Blocked** identifies a concrete impediment.
 Source implementation can exist while its capability is Planned.
+An explicitly `deferred:` Integration Point remains Blocked and is excluded
+from active package/service and installed checks until deliberately reactivated.
 
 Status is deliberately conservative for both newly composed profiles. No capability
 is currently marked Integrated: prior VM evidence is retained in notes, while
@@ -308,7 +310,7 @@ reject a stale table.
 | browser | Navigate the desktop and open applications | zen-browser-bin → zen-browser | xdg-default:zen.desktop | Planned | Source implementation present; installed workflow acceptance pending; unverified on hardware; [evidence](services/desktop/CHECKLIST.md) |
 | host-firewall | Configure networking and reach trusted remote machines | ufw → ufw | system-service:ufw | Planned | Source implementation present; installed workflow acceptance pending; unverified on hardware; [evidence](services/desktop/CHECKLIST.md) |
 | remote-overlay-network | Configure networking and reach trusted remote machines | tailscale → tailscale | system-service:tailscaled | Planned | Component observed in VM; complete current workflow and explicit-profile deployment need verification; unverified on hardware; [evidence](services/desktop/CHECKLIST.md) |
-| remote-desktop | Configure networking and reach trusted remote machines | rustdesk-unattended-wayland → rustdesk | system-service:rustdesk.service | Blocked | Known locked-connection capture failure; owner-deferred diagnosis; requires reviewed native package; unverified on hardware; **Compatibility Shim**: Native Arch packaging stages the upstream DRM variant without a RustDesk source fork; [evidence](services/rustdesk/README.md) |
+| remote-desktop | Configure networking and reach trusted remote machines | rustdesk-unattended-wayland → rustdesk | deferred:system-service:rustdesk.service | Blocked | Owner-postponed installation; excluded from both bootstrap profiles; native artifact retained; locked-capture defect unresolved; unverified on hardware; **Compatibility Shim**: Retained native Arch packaging stages the upstream DRM variant without a RustDesk source fork; activation is deferred; [evidence](services/rustdesk/README.md) |
 | graphical-login | Sign in to the workstation | greetd → greetd | system-service:greetd.service | Planned | Current presentation/adapter source is present; earlier shell evidence does not accept this replacement; unverified on hardware; [evidence](services/desktop/CHECKLIST.md) |
 | login-greeter | Sign in to the workstation | quickshell → /etc/blendos-workstation/identity/greeter-host | system-service:greetd.service | Planned | Current presentation/adapter source is present; earlier shell evidence does not accept this replacement; unverified on hardware; [evidence](services/desktop/CHECKLIST.md) |
 | container-engine | Run local development services without Docker | podman → podman | rootless-user:podman.socket | Planned | Component observed in VM; complete current workflow and explicit-profile deployment need verification; unverified on hardware; [evidence](services/desktop/CHECKLIST.md) |
@@ -406,7 +408,7 @@ reject a stale table.
 | browser | Navigate the desktop and open applications | zen-browser-bin → zen-browser | xdg-default:zen.desktop | Planned | Source implementation present; installed workflow acceptance pending; [evidence](services/desktop/CHECKLIST.md) |
 | host-firewall | Configure networking and reach trusted remote machines | ufw → ufw | system-service:ufw | Planned | Source implementation present; installed workflow acceptance pending; [evidence](services/desktop/CHECKLIST.md) |
 | remote-overlay-network | Configure networking and reach trusted remote machines | tailscale → tailscale | system-service:tailscaled | Installed | Component observed in VM; complete current workflow and explicit-profile deployment need verification; [evidence](services/desktop/CHECKLIST.md) |
-| remote-desktop | Configure networking and reach trusted remote machines | rustdesk-unattended-wayland → rustdesk | system-service:rustdesk.service | Blocked | Known locked-connection capture failure; owner-deferred diagnosis; requires reviewed native package; **Compatibility Shim**: Native Arch packaging stages the upstream DRM variant without a RustDesk source fork; [evidence](services/rustdesk/README.md) |
+| remote-desktop | Configure networking and reach trusted remote machines | rustdesk-unattended-wayland → rustdesk | deferred:system-service:rustdesk.service | Blocked | Owner-postponed installation; excluded from both bootstrap profiles; native artifact retained; locked-capture defect unresolved; **Compatibility Shim**: Retained native Arch packaging stages the upstream DRM variant without a RustDesk source fork; activation is deferred; [evidence](services/rustdesk/README.md) |
 | graphical-login | Sign in to the workstation | greetd → greetd | system-service:greetd.service | Planned | Current presentation/adapter source is present; earlier shell evidence does not accept this replacement; [evidence](services/desktop/CHECKLIST.md) |
 | login-greeter | Sign in to the workstation | quickshell → /etc/blendos-workstation/identity/greeter-host | system-service:greetd.service | Planned | Current presentation/adapter source is present; earlier shell evidence does not accept this replacement; [evidence](services/desktop/CHECKLIST.md) |
 | container-engine | Run local development services without Docker | podman → podman | rootless-user:podman.socket | Installed | Component observed in VM; complete current workflow and explicit-profile deployment need verification; [evidence](services/desktop/CHECKLIST.md) |

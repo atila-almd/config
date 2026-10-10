@@ -28,6 +28,8 @@ def contracts():
             raise ValueError(f"invalid profile scope: {row['capability']}")
         if any(row[x] not in STATUSES for x in ["vm_status", "physical_status"]):
             raise ValueError(f"invalid evidence status: {row['capability']}")
+        if row["integration"].startswith("deferred:") and any(row[x] != "Blocked" for x in ["vm_status", "physical_status"]):
+            raise ValueError(f"deferred integration must remain Blocked: {row['capability']}")
         if row["adaptation"] not in {"Configuration", "Composition", "Compatibility Shim", "Project Fork"}:
             raise ValueError(f"invalid adaptation: {row['capability']}")
         if row["adaptation"] in {"Compatibility Shim", "Project Fork"} and row["justification"] == "-":

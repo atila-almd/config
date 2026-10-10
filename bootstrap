@@ -5,10 +5,9 @@ umask 077
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 profile=''
 dry_run=false
-package=''
 usage() {
   cat <<'EOF'
-Usage: ./bootstrap PROFILE [--dry-run] [--rustdesk-package ABSOLUTE_PATH]
+Usage: ./bootstrap PROFILE [--dry-run]
 
 Select vm or the owner-approved physical profile explicitly. First run stages
 and rebuilds the system, then requests a deliberate reboot. Rerun the same
@@ -20,9 +19,6 @@ fail() { printf 'bootstrap: %s\n' "$*" >&2; exit 1; }
 while (($#)); do
   case "$1" in
     --dry-run) dry_run=true ;;
-    --rustdesk-package)
-      [[ $# -ge 2 ]] || fail 'missing package path'
-      package="$2"; shift ;;
     -h|--help) usage; exit 0 ;;
     --*) fail "unknown option: $1" ;;
     *) [[ -z "$profile" ]] || fail 'choose exactly one Machine Profile'; profile="$1" ;;
@@ -40,17 +36,14 @@ state_home="${XDG_STATE_HOME:-$HOME/.local/state}"
 state_home="$(realpath -m -- "$state_home")"
 [[ "$state_home" == /* && "$state_home" != "$repo_dir" && "$state_home" != "$repo_dir"/* ]] ||
   fail 'XDG_STATE_HOME must be absolute and outside the checkout'
-if [[ -n "$package" ]]; then
-  [[ "$package" == /* && -f "$package" ]] || fail 'RustDesk package must be an existing absolute path'
-fi
 machine_state="$state_home/blendos-workstation/machine"
-package_repo="$state_home/blendos-workstation/package-repo"
 manual() {
   cat <<EOF
 Manual after provisioning:
   - Log in through Workstation, then run the installed validators in README.md.
   - Verify physical outputs/GPU, audio/microphone, networking, lock/sleep and portals.
-  - Configure Git identities with git-profile, authenticate Tailscale, pair RustDesk.
+  - Configure Git identities with git-profile and authenticate Tailscale.
+  - RustDesk installation and remote-access acceptance are deferred; see services/rustdesk/README.md.
   - Sign in to Codex CLI locally; see services/development/README.md.
   - Pair ZapFast with your phone; see services/messaging/README.md.
   - Configure backup storage/credentials and enable its timer only when desired.
@@ -62,11 +55,9 @@ if [[ "$dry_run" == true ]]; then
   printf 'DRY RUN: explicit Machine Profile %s; rendered definition SHA-256 %s\n' "$profile" "$digest"
   printf 'Would check blendOS v4/x86_64, prerequisites and an inactive graphical session.\n'
   printf 'Would stage %s/system.yaml and preserve displaced /system.yaml and home files.\n' "$machine_state"
-  printf 'Would publish/reuse the supplied RustDesk artifact and serve its loopback repository during sudo akshara update.\n'
+  printf 'Would run sudo akshara update without a custom RustDesk package or local package server.\n'
   printf 'Would request a deliberate reboot, then deploy configuration/enable components on the next invocation.\n'
   printf 'A completed matching definition skips rebuilding; a same-boot pending rebuild cannot deploy home files.\n'
-  [[ -f "$package_repo/workstation-local.db" || -n "$package" ]] ||
-    printf 'MISSING PREREQUISITE: supply --rustdesk-package PATH or publish the reviewed native artifact first (services/rustdesk/README.md).\n'
   for prerequisite in sudo akshara systemctl flock; do
     command -v "$prerequisite" >/dev/null || printf 'MISSING PREREQUISITE: %s\n' "$prerequisite"
   done
@@ -93,9 +84,7 @@ systemctl is-active --quiet akshara-system-update.service && fail 'Akshara updat
 boot_id="$(cat /proc/sys/kernel/random/boot_id)"
 [[ -n "$boot_id" ]] || fail 'cannot read boot identity'
 temporary=''
-server_pid=''
 cleanup() {
-  [[ -z "$server_pid" ]] || { kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true; }
   [[ -z "$temporary" ]] || rm -f -- "$temporary"
 }
 trap cleanup EXIT
@@ -117,13 +106,6 @@ write_state() {
   mv -f -- "$staging" "$machine_state/$name"
 }
 if [[ "$pending" != "$digest" && ( "$completed" != "$digest" || -n "$pending" ) ]]; then
-  if [[ -n "$package" ]]; then
-    [[ "$package" == /* && -f "$package" ]] || fail 'RustDesk package must be an existing absolute path'
-    for prerequisite in repo-add bsdtar; do command -v "$prerequisite" >/dev/null || fail "required command unavailable: $prerequisite"; done
-    bash "$repo_dir/scripts/rustdesk-package-repo.sh" publish "$package"
-  fi
-  [[ -f "$package_repo/workstation-local.db" ]] ||
-    fail 'publish the reviewed native RustDesk package first, or supply --rustdesk-package PATH; see services/rustdesk/README.md'
   sudo -v
   temporary="$(mktemp "$machine_state/.system.XXXXXX")"
   printf '%s\n' "$definition" > "$temporary"
@@ -132,25 +114,6 @@ if [[ "$pending" != "$digest" && ( "$completed" != "$digest" || -n "$pending" ) 
   BLENDOS_WORKSTATION_MACHINE_PROFILE="$profile" \
   BLENDOS_WORKSTATION_SYSTEM_DEFINITION="$machine_state/system.yaml" \
     bash "$repo_dir/install.sh" --system-only
-  server_ready() {
-    python3 - "$package_repo/workstation-local.db" <<'PY'
-import pathlib,sys,urllib.request
-try:
-    with urllib.request.urlopen('http://127.0.0.1:18789/workstation-local.db',timeout=1) as response:
-        if response.read() != pathlib.Path(sys.argv[1]).read_bytes(): sys.exit(1)
-except Exception: sys.exit(1)
-PY
-  }
-  if ! server_ready; then
-    bash "$repo_dir/scripts/rustdesk-package-repo.sh" serve > "$machine_state/package-server.log" 2>&1 &
-    server_pid=$!
-    for ((attempt=0; attempt<30; attempt++)); do
-      server_ready && break
-      kill -0 "$server_pid" 2>/dev/null || fail 'package server failed; inspect machine/package-server.log'
-      sleep 0.2
-    done
-    server_ready || fail 'package server did not become ready'
-  fi
   # A failure leaves backups/source intact and never records a successful build.
   sudo -- akshara update
   write_state pending.boot "$boot_id"

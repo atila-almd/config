@@ -181,16 +181,17 @@ workstation-maintain status
 workstation-maintain verify-update
 ```
 
-Before `update`, [start the local RustDesk package server](../rustdesk/README.md#build-and-publish)
-and keep it running throughout the Akshara rebuild.
+The current profiles postpone RustDesk installation and require no custom
+package archive or local package server for updates.
 
 `preflight` requires blendOS and `/system.yaml` resolving to this account’s
 rendered machine Local State, matching this checkout and its selected profile. It
-shows available storage and updater service state, verifies that the configured
-loopback package repository serves `workstation-local.db`, and checks the
+shows available storage and updater service state and checks the
 configured backup repository. `update` creates a `pre-update` file backup before
-invoking `sudo akshara update`. A missing package server or failed/incomplete
-backup prevents that invocation.
+invoking `sudo akshara update`. A failed/incomplete backup prevents that invocation.
+If a future explicitly changed System Definition declares `workstation-local`,
+preflight checks its loopback database endpoint. Retained RustDesk artifacts
+alone do not activate that check.
 Akshara still owns building and activation; the helper never schedules updates
 or reboots, changes Akshara's units, or promises sufficient staging space from
 `df` output alone. Direct Akshara invocations bypass this helper's checkpoints.

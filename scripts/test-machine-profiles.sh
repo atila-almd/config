@@ -7,6 +7,10 @@ root=pathlib.Path(sys.argv[1])
 spec=importlib.util.spec_from_file_location('profiles',root/'scripts/render-system-definition.py')
 m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 vm=m.compose('vm');physical=m.compose('physical')
+for definition in (vm, physical):
+    assert 'rustdesk-unattended-wayland' not in definition['packages']
+    assert 'rustdesk.service' not in definition['services']
+    assert not definition.get('package-repos')
 assert 'virtualbox-guest-utils' in vm['packages'] and 'vboxservice' in vm['services']
 assert 'virtualbox-guest-utils' not in physical['packages'] and 'vboxservice' not in physical['services']
 assert 'amd-ucode' in physical['packages'] and 'nvidia-open-dkms' in physical['packages']

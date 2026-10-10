@@ -8,7 +8,11 @@ mkdir -p "$temporary/bin" "$fixture/bin" "$fixture/scripts" "$temporary/home"
 cp "$repo_dir/bin/workstation-maintain" "$fixture/bin/workstation-maintain"
 mkdir -p "$fixture/scripts"
 cat > "$fixture/scripts/render-system-definition.py" <<'PY'
-print("package-repos:\n  - name: workstation-local\n    repo-url: http://127.0.0.1:18789")
+import os
+if os.environ.get('MAINTAIN_WITH_CUSTOM_REPO') == '1':
+    print("package-repos:\n  - name: workstation-local\n    repo-url: http://127.0.0.1:18789")
+else:
+    print('packages: [git]')
 PY
 for validator in validate-component-contract.sh validate-desktop-shell.sh validate-user-session.sh; do
   cat > "$fixture/scripts/$validator" <<'EOF'
@@ -51,6 +55,7 @@ exit "${MAINTAIN_BACKUP_STATUS:-0}"
 EOF
 cat > "$temporary/bin/timeout" <<'EOF'
 #!/usr/bin/env bash
+printf 'package-repo probe\n' >> "$MAINTAIN_LOG"
 case "${MAINTAIN_REPO_STATUS:-ok}" in
   ok) printf 'HTTP/1.0 200 OK\n' ;;
   notfound) printf 'HTTP/1.0 404 Not Found\n' ;;
@@ -69,6 +74,7 @@ done
 chmod +x "$temporary/bin/"*
 export PATH="$temporary/bin:$PATH" HOME="$temporary/home" XDG_STATE_HOME="$temporary/state"
 export MAINTAIN_LOG="$temporary/log" MAINTAIN_REPO="$fixture"
+export MAINTAIN_WITH_CUSTOM_REPO=1
 mkdir -p "$XDG_STATE_HOME/blendos-workstation/machine"
 printf 'package-repos:\n  - name: workstation-local\n    repo-url: http://127.0.0.1:18789\n' > "$XDG_STATE_HOME/blendos-workstation/machine/system.yaml"
 printf 'vm\n' > "$XDG_STATE_HOME/blendos-workstation/machine/profile"
@@ -86,8 +92,15 @@ expect_failure env MAINTAIN_REPO_STATUS=notfound bash "$helper" update
 ! grep -q '^sudo ' "$MAINTAIN_LOG"
 expect_failure env MAINTAIN_UPDATER_STATUS=0 bash "$helper" update
 ! grep -q '^sudo ' "$MAINTAIN_LOG"
+# Current profiles have no custom repository. A retained database and a stopped
+# server must not prevent either update preflight or a checkpointed rebuild.
+export MAINTAIN_WITH_CUSTOM_REPO=0
+python3 "$fixture/scripts/render-system-definition.py" > "$XDG_STATE_HOME/blendos-workstation/machine/system.yaml"
+mkdir -p "$XDG_STATE_HOME/blendos-workstation/package-repo"
+printf 'retained database\n' > "$XDG_STATE_HOME/blendos-workstation/package-repo/workstation-local.db"
 : > "$MAINTAIN_LOG"
-bash "$helper" update > "$temporary/out"
+MAINTAIN_REPO_STATUS=unavailable bash "$helper" update > "$temporary/out"
+! grep -q '^package-repo probe$' "$MAINTAIN_LOG"
 [[ "$(grep -E '^backup|^sudo' "$MAINTAIN_LOG")" == $'backup check\nbackup run pre-update\nsudo -- akshara update' ]]
 jq -e '.phase == "awaiting-reboot"' "$pending" >/dev/null
 expect_failure bash "$helper" update
