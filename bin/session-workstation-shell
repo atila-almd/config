@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+mode="${1:-}"
+usage() {
+  printf 'Usage: session-workstation-shell [--run|--preview|--preview-controls|--launcher|--dashboard|--toggle|--card NAME|--debug NAME|--layout NAME|--controls [section]]\n' >&2
+  exit 2
+}
+[[ $# -le 1 || ( $# -eq 2 && "$mode" == --controls ) ||
+  ( $# -eq 2 && "$mode" == --card ) ||
+  ( $# -eq 2 && "$mode" == --debug ) ||
+  ( $# -eq 2 && "$mode" == --layout ) ]] || usage
+case "$mode" in
+  ''|--toggle|--launcher|--dashboard|--card|--debug|--layout|--controls)
+    ipc=(island toggle)
+    [[ "$mode" == --dashboard ]] && ipc=(island dashboard)
+    [[ "$mode" == --launcher ]] && ipc=(island launcher)
+    [[ "$mode" == --toggle ]] && ipc=(island toggle)
+    if [[ "$mode" == --card ]]; then
+      case "${2:-}" in
+        media|volume|battery|calendar|performance|tasks|timer|recorder|system_info|workspaces|projects|power|notifications)
+          ipc=(island card "$2") ;;
+        *) usage ;;
+      esac
+    fi
+    if [[ "$mode" == --debug ]]; then
+      case "${2:-}" in
+        compact|activity-media|activity-timer|attention|split|expanded|dashboard)
+          ipc=(island debug "$2") ;;
+        *) usage ;;
+      esac
+    fi
+    if [[ "$mode" == --layout ]]; then
+      case "${2:-}" in
+        grouped|spread|one) ipc=(island layout "$2") ;;
+        *) usage ;;
+      esac
+    fi
+    if [[ "$mode" == --controls ]]; then
+      ipc=(controls show)
+      if [[ $# -eq 2 ]]; then
+        case "$2" in audio|media|network|outputs|appearance|recording|power|settings) ipc=(controls section "$2") ;; *) usage ;; esac
+      fi
+    fi
+    if ! systemctl --user is-active --quiet workstation-shell.service; then
+      systemctl --user start workstation-shell.service
+    fi
+    # Type=simple reports startup before the QML IPC endpoint exists.
+    # Retry the actual intent with a bounded client timeout; do not launch a
+    # second shell or assume that a sleep duration proves readiness.
+    for ((attempt=0; attempt<50; attempt++)); do
+      if timeout 1 qs -c workstation ipc call -- "${ipc[@]}" >/dev/null 2>&1; then exit 0; fi
+      sleep 0.1
+    done
+    printf 'The workstation panel did not become available. Check workstation-shell.service.\n' >&2
+    exit 1
+    ;;
+  --run) ;;
+  --preview|--preview-controls)
+    export WORKSTATION_SHELL_PREVIEW=1
+    source_dir="$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/.." && pwd -P)"
+    export WORKSTATION_SHELL_FIXTURE="$source_dir/scripts/fixtures/workstation-shell/preview.json"
+    if [[ "$mode" == --preview-controls ]]; then
+      export WORKSTATION_SHELL_PREVIEW_CONTROLS=1
+      export WORKSTATION_SHELL_FIXTURE="$source_dir/scripts/fixtures/workstation-shell/controls-preview.json"
+    fi
+    ;;
+  *) usage ;;
+esac
+command -v qs >/dev/null || { printf 'Quickshell is not installed.\n' >&2; exit 127; }
+export QT_QUICK_CONTROLS_STYLE=Basic
+export QML_IMPORT_PATH="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell${QML_IMPORT_PATH:+:$QML_IMPORT_PATH}"
+if [[ "$(systemd-detect-virt 2>/dev/null || true)" == oracle ]]; then
+  export LIBGL_ALWAYS_SOFTWARE=true GALLIUM_DRIVER=llvmpipe QT_QUICK_BACKEND=software
+fi
+if [[ "$mode" == --preview || "$mode" == --preview-controls ]]; then
+  # A distinct configuration identity keeps preview IPC separate from the
+  # managed live window while exercising exactly the same presentation source.
+  preview_dir="$(mktemp -d "${XDG_RUNTIME_DIR:?A graphical runtime directory is required}/workstation-preview.XXXXXX")"
+  trap 'rm -rf -- "$preview_dir"' EXIT
+  cp -a -- "$source_dir/.config/quickshell/workstation" "$preview_dir/workstation"
+  export QML_IMPORT_PATH="$source_dir/.config/quickshell${QML_IMPORT_PATH:+:$QML_IMPORT_PATH}"
+  qs -p "$preview_dir/workstation"
+  exit
+fi
+exec qs -c workstation

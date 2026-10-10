@@ -1,0 +1,189 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+umask 077
+
+usage() {
+  printf '%s\n' 'Usage: workstation-controls [audio|media|display|power|settings|notifications|audio-mixer|network|display-info]' '       workstation-controls dispatch JSON | snapshot'
+}
+need_command() { command -v -- "$1" >/dev/null 2>&1 || { printf 'workstation-controls: required command unavailable: %s\n' "$1" >&2; exit 127; }; }
+settings_file() {
+  local root="${XDG_STATE_HOME:-$HOME/.local/state}"
+  [[ "$root" == /* ]] || return 1
+  printf '%s/blendos-workstation/shell/settings.json\n' "$root"
+}
+settings_valid() {
+  jq -e 'type=="object" and .schema_version==1 and ((keys-["schema_version","density","text_scale"])|length==0) and ((has("density")|not) or (.density=="compact" or .density=="spacious")) and ((has("text_scale")|not) or (.text_scale|type=="number" and .>=1 and .<=2))' >/dev/null 2>&1
+}
+settings_read() {
+  local file
+  file="$(settings_file)" || return 1
+  [[ ! -L "$file" && ! -L "${file%/*}" && ! -L "${file%/shell/*}" ]] || return 1
+  if [[ ! -e "$file" ]]; then printf '{"schema_version":1}\n'; return; fi
+  [[ -f "$file" && -O "$file" && "$(stat -c %a -- "$file")" == 600 && "$(stat -c %s -- "$file")" -le 65536 ]] || return 1
+  settings_valid < "$file" || return 1
+  jq -c . -- "$file"
+}
+settings_write() {
+  local value="$1" file temporary
+  settings_valid <<< "$value" || return 1
+  file="$(settings_file)" || return 1
+  [[ ! -L "$file" && ! -L "${file%/*}" && ! -L "${file%/shell/*}" ]] || return 1
+  install -d -m 0700 -- "${file%/shell/*}" "${file%/*}" || return 1
+  [[ -O "${file%/*}" && -O "${file%/shell/*}" ]] || return 1
+  temporary="$(mktemp "${file%/*}/.settings-XXXXXXXX")" || return 1
+  if ! { printf '%s\n' "$value" > "$temporary" && chmod 0600 -- "$temporary" && mv -T -- "$temporary" "$file"; }; then
+    rm -f -- "$temporary"; return 1
+  fi
+}
+settings_lock() {
+  local file lock
+  file="$(settings_file)" || return 1
+  [[ ! -L "$file" && ! -L "${file%/*}" && ! -L "${file%/shell/*}" ]] || return 1
+  install -d -m 0700 -- "${file%/shell/*}" "${file%/*}" || return 1
+  [[ -O "${file%/*}" && -O "${file%/shell/*}" ]] || return 1
+  lock="${file%/*}/settings.lock"
+  [[ ! -L "$lock" && (! -e "$lock" || (-f "$lock" && -O "$lock")) ]] || return 1
+  exec {settings_lock_fd}>>"$lock" || return 1
+  chmod 0600 -- "$lock" || return 1
+  flock -w 10 "$settings_lock_fd"
+}
+snapshot() {
+  local theme wallpaper settings attempt coherent=false
+  for ((attempt=0; attempt<3; attempt++)); do
+    theme="$(workstation-theme snapshot)" || return 1
+    wallpaper="$(workstation-wallpaper snapshot)" || return 1
+    if jq -e --argjson wallpaper "$wallpaper" '.data.theme_id==$wallpaper.data.theme_id and .data.release_id==$wallpaper.data.release_id' <<< "$theme" >/dev/null; then coherent=true; break; fi
+  done
+  [[ "$coherent" == true ]] || return 1
+  if ! settings="$(settings_read)"; then
+    printf '{"schema_version":1,"error":{"code":"invalid_settings","message":"Saved shell settings are invalid; reset them explicitly."},"data":null}\n'; return
+  fi
+  jq -cn --argjson theme "$theme" --argjson wallpaper "$wallpaper" --argjson settings "$settings" '{schema_version:1,data:($theme.data+{wallpaper_id:$wallpaper.data.wallpaper_id,wallpapers:$wallpaper.data.items,settings:$settings})}'
+}
+result() {
+  local status="$1" code="${2:-}" message="${3:-}" data="${4:-null}"
+  jq -cn --arg id "$request_id" --arg status "$status" --arg code "$code" --arg message "$message" --argjson data "$data" '{schema_version:1,type:"result",request_id:$id,status:$status,error:(if $code=="" then null else {code:$code,message:$message} end),data:$data}'
+}
+invalid() { result error invalid_request 'The control request is invalid.'; }
+dispatch() {
+  local request="$1" request_id='' action args id value current code status=0 duration=10 settings_lock_fd
+  local -a command_args
+  if [[ ${#request} -gt 65536 ]] || ! jq -e 'type=="object" and keys==["action","args","request_id","schema_version"] and .schema_version==1 and (.request_id|type=="string" and test("^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")) and (.action|type=="string") and (.args|type=="object")' <<< "$request" >/dev/null 2>&1; then invalid; return; fi
+  request_id="$(jq -r .request_id <<< "$request")"; action="$(jq -r .action <<< "$request")"; args="$(jq -c .args <<< "$request")"
+  case "$action" in
+    audio.set_volume|audio.set_mute|audio.set_default)
+      jq -e '.id|type=="string" and test("^[1-9][0-9]{0,9}$") and (tonumber<=4294967295)' <<< "$args" >/dev/null 2>&1 || { invalid; return; }
+      id="$(jq -r .id <<< "$args")"
+      case "$action" in
+        audio.set_volume)
+          jq -e 'keys==["id","volume"] and (.volume|type=="number" and .>=0 and .<=1)' <<< "$args" >/dev/null 2>&1 || { invalid; return; }
+          command_args=(wpctl set-volume "$id" "$(jq -r .volume <<< "$args")" --limit 1) ;;
+        audio.set_mute)
+          jq -e 'keys==["id","muted"] and (.muted|type=="boolean")' <<< "$args" >/dev/null 2>&1 || { invalid; return; }
+          command_args=(wpctl set-mute "$id" "$(jq -r 'if .muted then 1 else 0 end' <<< "$args")") ;;
+        audio.set_default)
+          [[ "$(jq -c keys <<< "$args")" == '["id"]' ]] || { invalid; return; }
+          command_args=(wpctl set-default "$id") ;;
+      esac ;;
+    notifications.show|notifications.dismiss)
+      jq -e 'keys==["id"] and (.id|type=="string" and test("^[0-9]{1,10}$") and (tonumber<=4294967295))' <<< "$args" >/dev/null 2>&1 || { invalid; return; }
+      id="$(jq -r .id <<< "$args")"
+      case "$action" in
+        notifications.show) command_args=(dunstctl history-pop "$id") ;;
+        notifications.dismiss) command_args=(dunstctl history-rm "$id") ;;
+      esac ;;
+    notifications.clear)
+      [[ "$args" == '{}' ]] || { invalid; return; }
+      command_args=(dunstctl history-clear) ;;
+    notifications.set_dnd)
+      jq -e 'keys==["paused"] and (.paused|type=="boolean")' <<< "$args" >/dev/null 2>&1 || { invalid; return; }
+      command_args=(dunstctl set-paused "$(jq -r 'if .paused then "true" else "false" end' <<< "$args")") ;;
+    media.play|media.pause|media.next|media.previous)
+      jq -e 'keys==["id"] and (.id|type=="string" and length<=255 and test("^org\\.mpris\\.MediaPlayer2\\.[A-Za-z0-9_][A-Za-z0-9_.-]*$"))' <<< "$args" >/dev/null 2>&1 || { invalid; return; }
+      id="$(jq -r .id <<< "$args")"; command_args=(playerctl --player "${id#org.mpris.MediaPlayer2.}" "${action#media.}") ;;
+    appearance.set_theme)
+      jq -e 'keys==["id"] and (.id|type=="string" and length<=128 and test("^[a-z0-9][a-z0-9-]*$"))' <<< "$args" >/dev/null 2>&1 || { invalid; return; }
+      command_args=(workstation-theme set "$(jq -r .id <<< "$args")") ;;
+    appearance.set_wallpaper)
+      jq -e 'keys==["id","release_id","theme_id"] and (.id|type=="string" and test("^[0-9]{1,6}$")) and (.theme_id|type=="string") and (.release_id|type=="string")' <<< "$args" >/dev/null 2>&1 || { invalid; return; }
+      current="$(workstation-theme snapshot 2>/dev/null)" || { result error backend_unavailable 'Appearance is unavailable.'; return; }
+      jq -e --argjson args "$args" '.data.theme_id==$args.theme_id and .data.release_id==$args.release_id' <<< "$current" >/dev/null || { result error stale_id 'The selected wallpaper release has changed.'; return; }
+      command_args=(workstation-wallpaper set "$(jq -r .id <<< "$args")" --expect-theme "$(jq -r .theme_id <<< "$args")" --expect-release "$(jq -r .release_id <<< "$args")") ;;
+    recording.stop)
+      jq -e 'keys==["run_id"] and (.run_id|type=="string" and test("^recording-[A-Za-z0-9]+$"))' <<< "$args" >/dev/null 2>&1 || { invalid; return; }
+      current="$(workstation-record snapshot 2>/dev/null)" || { result error backend_unavailable 'Recording status is unavailable.'; return; }
+      jq -e --argjson args "$args" '.data.run_id==$args.run_id and .data.can_stop' <<< "$current" >/dev/null || { result error stale_id 'The selected recording is no longer active.'; return; }
+      command_args=(workstation-record stop --expect-run "$(jq -r .run_id <<< "$args")") ;;
+    network.open|audio.open_mixer)
+      [[ "$args" == '{}' ]] || { invalid; return; }
+      value=network; [[ "$action" != audio.open_mixer ]] || value=audio-mixer
+      command_args=(systemd-run --user --collect --property=Type=exec --property=PartOf=blendos-workstation-session.target --property=After=blendos-workstation-session.target --property=Requisite=blendos-workstation-session.target -- workstation-controls "$value") ;;
+    power.lock|power.suspend)
+      [[ "$args" == '{}' || "$args" == '{"confirmed":true}' ]] || { invalid; return; }
+      command_args=(session-lock); [[ "$action" != power.suspend ]] || command_args=(workstation-suspend) ;;
+    power.logout|power.reboot|power.shutdown)
+      jq -e 'keys==["confirmed"] and (.confirmed|type=="boolean")' <<< "$args" >/dev/null 2>&1 || { invalid; return; }
+      [[ "$(jq -r .confirmed <<< "$args")" == true ]] || { result cancelled; return; }
+      case "$action" in power.logout) command_args=(uwsm stop);; power.reboot) command_args=(systemctl reboot);; power.shutdown) command_args=(systemctl poweroff);; esac ;;
+    settings.update|settings.reset|settings.export)
+      if [[ "$action" == settings.update ]]; then
+        jq -e 'length>0 and ((keys-["density","text_scale"])|length==0)' <<< "$args" >/dev/null 2>&1 || { invalid; return; }
+        settings_valid <<< "$(jq -c '.+{schema_version:1}' <<< "$args")" || { invalid; return; }
+      else
+        [[ "$args" == '{}' ]] || { invalid; return; }
+      fi
+      if [[ "$action" != settings.export ]]; then
+        settings_lock || { result error settings_failed 'Shell settings could not be locked.'; return; }
+      fi
+      if [[ "$action" == settings.update ]]; then
+        jq -e 'length>0 and ((keys-["density","text_scale"])|length==0)' <<< "$args" >/dev/null 2>&1 || { invalid; return; }
+        current="$(settings_read)" || { result error invalid_settings 'Saved shell settings are invalid; reset them explicitly.'; return; }
+        value="$(jq -cn --argjson current "$current" --argjson args "$args" '$current+$args')"
+        settings_valid <<< "$value" || { invalid; return; }
+      else
+        [[ "$args" == '{}' ]] || { invalid; return; }
+        value='{"schema_version":1}'
+      fi
+      if [[ "$action" == settings.export ]]; then
+        value="$(settings_read)" || { result error invalid_settings 'Saved shell settings are invalid; reset them explicitly.'; return; }
+      else
+        settings_write "$value" || { result error settings_failed 'Shell settings could not be saved.'; return; }
+      fi
+      result ok '' '' "$value"; return ;;
+    *) invalid; return ;;
+  esac
+  command -v -- "${command_args[0]}" >/dev/null 2>&1 || { result error backend_unavailable 'The requested backend is unavailable.'; return; }
+  case "${command_args[0]}" in
+    workstation-theme|workstation-wallpaper) "${command_args[@]}" >/dev/null 2>&1 || status=$? ;;
+    *)
+      case "${command_args[0]}" in workstation-record|workstation-suspend|session-lock) duration=45 ;; esac
+      timeout --kill-after=2 "$duration" "${command_args[@]}" >/dev/null 2>&1 || status=$? ;;
+  esac
+  if ((status == 0)); then result ok; else
+    code=command_failed
+    if [[ "${command_args[0]}" == wpctl ]]; then
+      ((status != 3)) || code=stale_id
+      ((status != 2 && status != 127)) || code=backend_unavailable
+    fi
+    ((status != 75)) || code=stale_id
+    ((status != 73)) || code=busy
+    ((status != 124 && status != 137)) || code=backend_timeout
+    result error "$code" 'The backend did not accept the requested change.'
+  fi
+}
+case "${1:-audio}" in
+  dispatch) (($# == 2)) || { usage >&2; exit 2; }; need_command jq; dispatch "$2" ;;
+  snapshot) (($# == 1)) || exit 2; need_command jq; snapshot ;;
+  audio-mixer)
+    (($# == 1)) || exit 2; need_command pavucontrol
+    if [[ "$(systemd-detect-virt 2>/dev/null || true)" == oracle ]]; then export GSK_RENDERER="${GSK_RENDERER:-cairo}"; fi
+    exec pavucontrol ;;
+  network) (($# == 1)) || exit 2; need_command nm-connection-editor; exec nm-connection-editor ;;
+  audio|media|display|power|settings|notifications)
+    (($# <= 1)) || exit 2; section="${1:-audio}"
+    [[ "$section" != display ]] || section=outputs
+    need_command session-workstation-shell; exec session-workstation-shell --controls "$section" ;;
+  display-info) (($# == 1)) || exit 2; need_command hyprctl; hyprctl monitors ;;
+  -h|--help) usage ;;
+  *) usage >&2; exit 2 ;;
+esac

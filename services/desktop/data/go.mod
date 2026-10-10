@@ -1,0 +1,9 @@
+module workstation.local/data
+
+go 1.27.0
+
+require (
+	github.com/fsnotify/fsnotify v1.10.1
+	github.com/godbus/dbus/v5 v5.2.2
+	golang.org/x/sys v0.27.0
+)

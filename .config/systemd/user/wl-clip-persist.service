@@ -1,0 +1,13 @@
+[Unit]
+Description=Wayland clipboard persistence
+Documentation=https://github.com/Linus789/wl-clip-persist
+PartOf=blendos-workstation-session.target
+After=blendos-workstation-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/wl-clip-persist --clipboard regular --disable-timestamps
+Restart=on-failure
+RestartSec=2s
+Slice=session-graphical.slice

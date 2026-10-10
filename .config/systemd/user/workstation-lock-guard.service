@@ -1,0 +1,23 @@
+[Unit]
+Description=Compositor-confirmed lock and sleep guard
+Requisite=graphical-session.target
+After=graphical-session.target
+PartOf=blendos-workstation-session.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=notify
+NotifyAccess=main
+ExecStart=%h/.local/libexec/blendos-workstation/workstation-lock-guard serve
+Restart=on-failure
+# Keep a crash/restart from propagating failure through the required target and
+# stopping the independent locker while the compositor remains locked.
+RestartMode=direct
+RestartSec=1
+TimeoutStartSec=20
+FileDescriptorStoreMax=1
+FileDescriptorStorePreserve=restart
+UMask=0077
+
+[Install]
+WantedBy=blendos-workstation-session.target

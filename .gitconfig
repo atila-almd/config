@@ -1,0 +1,6 @@
+[include]
+	# Local identity profiles and directory mappings are created by git-profile.
+	path = ~/.local/state/blendos-workstation/git/config
+[core]
+	editor = nvim
+	excludesFile = ~/.config/git/ignore

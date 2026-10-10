@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+program_name="${0##*/}"
+
+fail() {
+  printf '%s: %s\n' "$program_name" "$*" >&2
+  exit 1
+}
+
+usage() {
+  cat <<'EOF'
+Usage:
+  workstation-keybindings
+
+Show the active Hyprland shortcuts in a searchable Walker menu. Selecting a
+shortcut only dismisses the reference; shortcut text is never executed.
+EOF
+}
+
+need_command() {
+  command -v -- "$1" >/dev/null 2>&1 || fail "required command is unavailable: $1"
+}
+
+main() {
+  local binds status selected entries
+  (($# == 0)) || case "$1" in -h|--help) usage; return ;; *) usage >&2; exit 2 ;; esac
+  need_command hyprctl
+  need_command jq
+  need_command walker
+
+  set +e
+  binds="$(hyprctl binds -j)"
+  status=$?
+  set -e
+  ((status == 0)) || fail "hyprctl binds -j failed (status $status)"
+
+  # Hyprland's modmask is a bit field: Shift=1, Caps=2, Ctrl=4, Alt=8,
+  # Mod2=16, Mod3=32, Meta/Super=64, and Mod5=128.
+  set +e
+  entries="$(jq -er '
+    def mods($mask):
+      [["SUPER",64],["CTRL",4],["ALT",8],["SHIFT",1],["CAPS",2],["MOD2",16],["MOD3",32],["MOD5",128]]
+      | map(select(($mask / .[1] | floor) % 2 == 1) | .[0])
+      | join(" + ");
+    if (type != "array") then error("binds JSON must be an array") else . end
+    | map(
+        (.["key"] // "") as $key
+        | (.["keycode"] // null) as $code
+        | if ((.["modmask"] | type) != "number" or (.["modmask"] % 1 != 0) or .["modmask"] < 0)
+          or (($key | type) != "string")
+          or (($code != null) and (($code | type) != "number" or ($code % 1 != 0) or $code < 0))
+          or ($key == "" and (($code == null or $code == 0) and (.["mouse"] // false) != true))
+          or ((.["dispatcher"] | type) != "string")
+          or ((.["arg"] != null) and ((.["arg"] | type) != "string"))
+          or ((.["description"] != null) and ((.["description"] | type) != "string"))
+        then error("invalid bind entry")
+        else
+          (if $key != "" then $key elif $code != null and $code > 0 then "keycode:" + ($code | tostring) else "mouse" end) as $trigger
+          | (mods(.["modmask"]) as $mods
+           | ((if (.["description"] // "") == "" then
+                 .["dispatcher"] + (if (.["arg"] // "") == "" then "" else " " + .["arg"] end)
+               else .["description"] end) | gsub("[\r\n\t]"; " ")) as $display
+           | (if $mods == "" then "" else $mods + " + " end) + $trigger + " — " + $display)
+        end
+      )
+    | sort
+    | if length == 0 then error("no Hyprland keybindings found") else .[] end
+  ' <<<"$binds")"
+  status=$?
+  set -e
+  ((status == 0)) || fail 'hyprctl returned malformed or unsupported binds JSON'
+
+  set +e
+  selected="$(printf '%s\n' "$entries" | walker --dmenu --placeholder 'Keybindings')"
+  status=$?
+  set -e
+  case "$status" in
+    0) : ;; # This is a read-only reference; never execute the selected text.
+    1|130) return 0 ;;
+    *) fail "Walker failed (status $status)" ;;
+  esac
+  : "${selected:-}"
+}
+
+main "$@"

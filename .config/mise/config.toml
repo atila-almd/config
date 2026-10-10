@@ -1,0 +1,6 @@
+[tools]
+node = "24.20.0"
+"npm:portless" = "0.15.6"
+
+[settings]
+idiomatic_version_file_enable_tools = ["node"]

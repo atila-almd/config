@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "layout": "grouped",
+  "theme_mode": "auto",
+  "enabled_widgets": [
+    "media",
+    "volume",
+    "battery",
+    "calendar",
+    "performance",
+    "tasks",
+    "timer",
+    "recorder",
+    "system_info",
+    "workspaces",
+    "projects",
+    "power",
+    "notifications"
+  ],
+  "widget_order": [
+    "media",
+    "volume",
+    "battery",
+    "calendar",
+    "performance",
+    "tasks",
+    "timer",
+    "recorder",
+    "system_info",
+    "workspaces",
+    "projects",
+    "power",
+    "notifications"
+  ],
+  "animation_speed": 1.0,
+  "reduce_motion": false,
+  "bar_height": 40,
+  "top_margin": 8,
+  "dashboard_width": 860,
+  "text_scale": 1.0
+}

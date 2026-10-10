@@ -1,0 +1,5 @@
+# Copy to private Local State with mode 0600, or use git-profile add instead.
+# Directory mappings are created by git-profile map; never commit real values.
+[user]
+    name = Your Public Name
+    email = you@example.org

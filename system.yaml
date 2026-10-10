@@ -1,0 +1,345 @@
+repo: 'https://pkg-repo.blendos.co'
+arch-repo: 'https://archlinux.c3sl.ufpr.br'
+
+track: 'custom'
+
+# Verified native RustDesk artifacts are served locally throughout the rebuild.
+package-repos:
+  - name: 'workstation-local'
+    repo-url: 'http://127.0.0.1:18789'
+
+# Active machine profile: AMD CPU, NVIDIA GPU, wired Ethernet desktop.
+# Disabled profiles are retained as commented templates and install nothing.
+packages:
+  # Workstation shell, independent locker and native QML validation tools.
+  - 'quickshell'
+  - 'qt6-declarative'
+  # Base system and blendOS
+  - 'arch-install-scripts'
+  - 'archlinux-keyring'
+  - 'base-devel'
+  - 'blend'
+  - 'blend-settings'
+  - 'bzip2'
+  - 'coreutils'
+  - 'file'
+  - 'filesystem-blend'
+  - 'findutils'
+  - 'gawk'
+  - 'gcc-libs'
+  - 'gettext'
+  - 'git'
+  # Build the project-owned desktop data service during home installation.
+  - 'go'
+  - 'glibc'
+  - 'grep'
+  - 'gzip'
+  - 'licenses'
+  - 'pacman'
+  - 'procps-ng'
+  - 'psmisc'
+  - 'sed'
+  - 'shadow'
+  - 'sudo'
+  - 'systemd'
+  - 'systemd-sysvcompat'
+  - 'tar'
+  # Measured process usage for explicitly launched coding agents.
+  - 'time'
+  - 'util-linux'
+  - 'xz'
+
+  # Boot, kernel, and firmware
+  - 'amd-ucode'
+  - 'efibootmgr'
+  - 'grub'
+  - 'linux-firmware'
+  - 'linux-zen'
+  - 'linux-zen-headers'
+  - 'memtest86+'
+  - 'mkinitcpio'
+  - 'mkinitcpio-archiso'
+  - 'os-prober'
+  - 'syslinux'
+
+  # Current graphics hardware: NVIDIA RTX 4060
+  - 'egl-wayland'
+  - 'nvidia-dkms'
+  - 'nvidia-utils'
+
+  # Storage, filesystems, and recovery
+  - 'btrfs-progs'
+  - 'cryptsetup'
+  - 'dosfstools'
+  - 'e2fsprogs'
+  - 'exfatprogs'
+  - 'f2fs-tools'
+  - 'fatresize'
+  - 'gpart'
+  - 'gptfdisk'
+  - 'hdparm'
+  - 'mdadm'
+  - 'mtools'
+  - 'nbd'
+  - 'ntfs-3g'
+  - 'parted'
+  - 'partimage'
+  - 'pv'
+  - 'rsync'
+  # Explicit file backups; destination and timer opt-in remain Local State.
+  - 'restic'
+  - 'smartmontools'
+  - 'squashfs-tools'
+  - 'xfsprogs'
+
+  # Hardware inspection and platform support
+  - 'dmidecode'
+  - 'fwupd'
+  - 'libfido2'
+  - 'libusb-compat'
+  - 'pciutils'
+  - 'tpm2-tss'
+  - 'usbutils'
+
+  # Wired networking and diagnostics
+  - 'bind'
+  - 'dhclient'
+  - 'dnsmasq'
+  - 'iproute2'
+  - 'iputils'
+  - 'networkmanager'
+  - 'openssh'
+  - 'tcpdump'
+
+  # Host firewall; policy is applied by install.sh after rebuild.
+  - 'ufw'
+
+  # VPN and remote access used by this profile
+  - 'openfortivpn'
+  - 'tailscale'
+  - 'rustdesk-unattended-wayland'
+
+  # Audio and media
+  - 'alsa-utils'
+  - 'ffmpeg'
+  - 'gst-plugin-pipewire'
+  - 'pavucontrol'
+  - 'pipewire'
+  - 'pipewire-alsa'
+  - 'pipewire-jack'
+  - 'pipewire-pulse'
+  - 'playerctl'
+  # On-demand recording; no recorder starts at login.
+  - 'wf-recorder'
+  - 'wireplumber'
+
+  # Hyprland session and desktop integration
+  - 'awww'
+  - 'brightnessctl'
+  - 'dunst'
+  - 'grim'
+  - 'hyprcursor'
+  - 'hyprland'
+  - 'hypridle'
+  - 'hyprpicker'
+  - 'hyprpolkitagent'
+  - 'hyprshot'
+  - 'greetd'
+  - 'network-manager-applet'
+  - 'gnome-keyring'
+  - 'libsecret'
+  - 'papirus-icon-theme'
+  - 'slurp'
+  - 'uwsm'
+  - 'wl-clip-persist'
+  - 'wl-clipboard'
+  - 'xdg-desktop-portal-hyprland'
+  - 'xdg-desktop-portal-gtk'
+  - 'xdg-user-dirs'
+  - 'xdg-utils'
+
+  # Fonts
+  - 'otf-geist-mono-nerd'
+  - 'ttf-jetbrains-mono-nerd'
+
+  # Desktop applications and command-line tools
+  - '7zip'
+  - 'btop'
+  - 'eza'
+  - 'fastfetch'
+  - 'flatpak'
+  - 'fzf'
+  - 'ghostty'
+  - 'imagemagick'
+  - 'imv'
+  - 'irssi'
+  - 'jq'
+  - 'less'
+  - 'libqalculate'
+  - 'libnotify'
+  - 'man-db'
+  - 'man-pages'
+  - 'mc'
+  - 'mpv'
+  - 'nano'
+  - 'nemo'
+  - 'nemo-fileroller'
+  - 'neovim'
+  - 'poppler'
+  # Local OCR and QR tools exposed through workstation-media.
+  - 'qrencode'
+  - 'resvg'
+  - 'ripgrep'
+  - 'starship'
+  - 'tesseract'
+  - 'tesseract-data-eng'
+  - 'tesseract-data-por'
+  - 'yazi'
+  - 'zathura'
+  - 'zathura-pdf-mupdf'
+  - 'zbar'
+  - 'zoxide'
+  - 'zsh'
+
+  # Development and containers
+  - 'lazydocker'
+  - 'mise'
+  - 'podman'
+  - 'podman-compose'
+
+  # VirtualBox development VM only; disable both entries for bare metal.
+  - 'virtualbox-guest-utils'
+
+  # Optional profile: generic Wi-Fi
+  # - 'wireless-regdb'
+  # - 'wireless_tools'
+  # - 'wpa_supplicant'
+
+  # Optional profile: Broadcom Wi-Fi (also enable generic Wi-Fi)
+  # - 'b43-fwcutter'
+  # - 'broadcom-wl-dkms'
+
+  # Optional profile: Bluetooth (also enable bluetooth.service below)
+  # - 'bluez'
+
+  # Optional profile: printing (also enable cups.service below)
+  # - 'cups'
+
+  # Optional profile: Intel CPU and audio firmware
+  # - 'intel-ucode'
+  # - 'sof-firmware'
+
+  # Optional profile: Marvell hardware firmware
+  # - 'linux-firmware-marvell'
+
+  # Optional profile: Hyper-V guest
+  # - 'hyperv'
+
+  # Optional profile: NFS
+  # - 'mkinitcpio-nfs-utils'
+  # - 'nfs-utils'
+
+  # Optional profile: mobile broadband and legacy VPN protocols
+  # - 'linux-atm'
+  # - 'modemmanager'
+  # - 'openconnect'
+  # - 'ppp'
+  # - 'pptpclient'
+  # - 'usb_modeswitch'
+  # - 'vpnc'
+  # - 'wvdial'
+  # - 'xl2tpd'
+
+  # Optional profile: smart cards and Apple mobile devices
+  # - 'pcsclite'
+  # - 'usbmuxd'
+
+  # Optional profile: accessibility
+  # - 'brltty'
+  # - 'espeakup'
+
+  # Optional profile: uncommon filesystems and optical media
+  # - 'nilfs-utils'
+  # - 'udftools'
+
+  # Optional utility: IPv6 neighbor discovery diagnostics
+  # - 'ndisc6'
+
+aur-packages:
+  # Desktop applications
+  # Walker's source-built Elephant core and providers must be rebuilt at the
+  # same upstream version; Go plugins are ABI-sensitive.
+  - 'elephant'
+  - 'elephant-calc'
+  - 'elephant-clipboard'
+  - 'elephant-desktopapplications'
+  - 'elephant-files'
+  - 'elephant-menus'
+  - 'elephant-providerlist'
+  - 'elephant-runner'
+  - 'elephant-symbols'
+  - 'elephant-websearch'
+  - 'elephant-windows'
+  - 'helium-browser-bin'
+  - 'walker-bin'
+  - 'zen-browser-bin'
+
+  # System utility
+  - 'zramswap'
+
+services:
+  # Core system
+  - 'NetworkManager'
+  - 'systemd-resolved'
+  - 'ufw'
+
+  # Login and memory
+  - 'greetd.service'
+  - 'zramswap'
+
+  # Remote access
+  - 'rustdesk.service'
+  - 'tailscaled'
+
+  # VirtualBox development VM only; disable with virtualbox-guest-utils.
+  - 'vboxservice'
+
+  # Optional profile: Bluetooth; requires the bluez package above.
+  # - 'bluetooth'
+
+  # Optional profile: printing; requires the cups package above.
+  # - 'cups'
+
+user-services:
+  # blendOS integration
+  - 'blend-files'
+
+  # Desktop session
+  - 'pipewire-pulse'
+  - 'wireplumber'
+
+  # Rootless containers
+  - 'podman.socket'
+
+commands:
+  # greetd owns pre-login authentication and starts the project-owned host.
+  # The installer publishes the host and public identity bundle before this
+  # service is enabled; the condition below keeps a rebuilt image on a TTY
+  # until that normal provisioning step has completed.
+  - |
+    install -d -m0755 /etc/greetd
+    printf '[terminal]\nvt = 2\nswitch = true\n\n[general]\nsource_profile = false\n\n[default_session]\ncommand = "/etc/blendos-workstation/identity/greeter-host"\nuser = "greeter"\n' > /etc/greetd/config.toml
+  - |
+    test -f /etc/pam.d/greetd
+    for line in 'auth optional pam_gnome_keyring.so' 'session optional pam_gnome_keyring.so auto_start' 'password optional pam_gnome_keyring.so'; do
+      grep -Fqx "$line" /etc/pam.d/greetd || printf '%s\n' "$line" >> /etc/pam.d/greetd
+    done
+  - |
+    install -d -m0755 /etc/systemd/system/greetd.service.d
+    printf '[Unit]\nConditionPathExists=/etc/blendos-workstation/identity/greeter-host\nConditionPathExists=/etc/blendos-workstation/identity/public-theme.json\n' > /etc/systemd/system/greetd.service.d/10-blendos-identity.conf
+  # PAM authentication is owned by the independent Quickshell locker.
+  - 'printf "auth include system-auth\n" > /etc/pam.d/workstation-lock'
+  - 'install -Dm644 /usr/etc/shells /etc/shells'
+  # Portless runs as the desktop user and owns only loopback port 80.
+  - 'printf "net.ipv4.ip_unprivileged_port_start=80\n" > /etc/sysctl.d/90-portless.conf'
+  - 'rm -f /usr/share/applications/Waydroid.desktop'

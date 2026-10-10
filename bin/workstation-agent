@@ -1,0 +1,258 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+umask 077
+
+program_name="${0##*/}"
+state_root="${BLENDOS_WORKSTATION_AGENT_STATE_HOME:-${XDG_STATE_HOME:-$HOME/.local/state}/blendos-workstation/agents}"
+runs_root="$state_root/runs"
+project_helper="${BLENDOS_WORKSTATION_PROJECT_HELPER:-workstation-project}"
+time_command="${BLENDOS_WORKSTATION_AGENT_TIME:-/usr/bin/time}"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  workstation-agent run PROJECT -- COMMAND [ARGUMENT...]
+  workstation-agent status RUN-ID|UNIT [--wait]
+  workstation-agent list [--wait]
+
+Runs an explicit command in the selected project through a user systemd scope.
+Run records are private Local State and never contain argv, prompts, or the
+environment.
+EOF
+}
+
+fail() {
+  printf '%s: %s\n' "$program_name" "$*" >&2
+  exit 1
+}
+
+need_command() {
+  command -v -- "$1" >/dev/null 2>&1 || {
+    printf '%s: required command is unavailable: %s\n' "$program_name" "$1" >&2
+    exit 127
+  }
+}
+
+atomic_record() {
+  local run_dir="$1" id="$2" project="$3" executable="$4" time_file="$5"
+  local unit="$6" state="$7" raw_status="$8" cpu="$9" memory="${10}" start="${11}" end="${12}" project_id="${13}" temporary
+  temporary="$(mktemp "$run_dir/.record.XXXXXX")"
+  chmod 0600 -- "$temporary"
+  jq -cn --arg id "$id" --arg project "$project" --arg executable "$executable" \
+    --arg time "$time_file" --arg unit "$unit" --arg state "$state" \
+    --arg rawstatus "$raw_status" --arg cpu_usage_ns "$cpu" --arg memory_current "$memory" \
+    --arg started_at "$start" --arg ended_at "$end" --arg project_id "$project_id" \
+    '{id:$id,project:$project,project_id:$project_id,executable:$executable,time:$time,unit:$unit,state:$state,
+      rawstatus:$rawstatus,cpu_usage_ns:$cpu_usage_ns,memory_current:$memory_current,
+      started_at:$started_at,ended_at:$ended_at}' > "$temporary"
+  mv -f -- "$temporary" "$run_dir/record.json"
+}
+
+unit_properties() {
+  local unit="$1"
+  systemctl --user show "$unit" --no-legend \
+    --property=ActiveState --property=SubState --property=Result \
+    --property=ExecMainStatus --property=CPUUsageNSec --property=MemoryCurrent
+}
+
+property_value() {
+  local properties="$1" property="$2"
+  while IFS= read -r line; do
+    [[ "$line" == "$property="* ]] && {
+      printf '%s\n' "${line#*=}"
+      return 0
+    }
+  done <<< "$properties"
+  printf 'unavailable\n'
+}
+
+active_target() {
+  local target=blendos-workstation-session.target
+  systemctl --user is-active --quiet "$target" >/dev/null 2>&1 ||
+    fail 'no managed graphical session target is active'
+  printf '%s\n' "$target"
+}
+
+ensure_prerequisites() {
+  need_command systemctl
+  need_command systemd-run
+  need_command "$project_helper"
+  need_command jq
+  [[ -x "$time_command" ]] || fail "GNU time is unavailable: $time_command"
+  local help_output
+  help_output="$(systemd-run --help 2>&1 || true)"
+  grep -Fq -- '--expand-environment' <<< "$help_output" ||
+    fail 'systemd-run lacks required --expand-environment=no support'
+}
+
+normalize_metric() {
+  case "${1:-}" in
+    ''|'[not set]'|18446744073709551615) printf 'unavailable\n' ;;
+    *) printf '%s\n' "$1" ;;
+  esac
+}
+
+new_id() {
+  local stamp
+  stamp="$(date -u +%Y%m%dT%H%M%S)"
+  printf 'run-%s-%s-%s\n' "$stamp" "$$" "$RANDOM"
+}
+
+run_agent() {
+  (($# >= 3)) || { usage >&2; exit 2; }
+  local project_id="$1" delimiter="$2" project executable id run_dir time_file unit target start end
+  shift 2
+  [[ "$delimiter" == -- ]] || { usage >&2; exit 2; }
+  (($# > 0)) || fail 'an explicit command is required after --'
+  ensure_prerequisites
+  project="$("$project_helper" path "$project_id")"
+  [[ -d "$project" ]] || fail "project directory is missing: $project"
+  executable="${1##*/}"
+  id="$(new_id)"
+  run_dir="$runs_root/$id"
+  mkdir -p -- "$runs_root" "$run_dir"
+  chmod 0700 -- "$runs_root" "$run_dir"
+  time_file="$run_dir/time"
+  unit="blendos-agent-${id#run-}.scope"
+  target="$(active_target)"
+  start="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  atomic_record "$run_dir" "$id" "$project" "$executable" "$time_file" "$unit" running unavailable unavailable unavailable "$start" '' "$project_id"
+  printf 'Run %s started (%s).\n' "$id" "$unit"
+  local command="$1"
+  shift
+
+  local run_status properties state cpu memory
+  set +e
+  systemd-run --user --scope --quiet --unit="$unit" \
+    --working-directory="$project" --expand-environment=no \
+    --property="PartOf=$target" --property=CPUAccounting=yes \
+    --property=MemoryAccounting=yes -- \
+    "$time_command" -q -f '%e %U %S %M %x' -o "$time_file" -- \
+    "$command" "$@"
+  run_status=$?
+  set -e
+  end="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  properties="$(unit_properties "$unit" 2>/dev/null || true)"
+  cpu=unavailable
+  memory=unavailable
+  [[ -n "$properties" ]] && {
+    cpu="$(normalize_metric "$(property_value "$properties" CPUUsageNSec)")"
+    memory="$(normalize_metric "$(property_value "$properties" MemoryCurrent)")"
+  }
+  if ((run_status >= 128)); then state=interrupted
+  elif ((run_status == 0)); then state=succeeded
+  else state=failed
+  fi
+  atomic_record "$run_dir" "$id" "$project" "$executable" "$time_file" "$unit" "$state" "$run_status" "$cpu" "$memory" "$start" "$end" "$project_id"
+  printf 'Run %s finished: %s (status %s).\n' "$id" "$state" "$run_status"
+  return "$run_status"
+}
+
+record_path() {
+  local name="$1"
+  if [[ "$name" == *.scope ]]; then
+    name="${name%.scope}"
+    [[ "$name" == blendos-agent-* ]] || fail "unknown run: $1"
+    name="run-${name#blendos-agent-}"
+  fi
+  [[ "$name" =~ ^run-[A-Za-z0-9T._-]+$ ]] || fail "invalid run ID: $1"
+  printf '%s/%s/record.json\n' "$runs_root" "$name"
+}
+
+record_json() {
+  local file="$1" live="${2:-false}" record unit state properties='' cpu='' memory=''
+  local elapsed='' user_cpu='' system_cpu='' rss='' reported='' time_file
+  need_command jq
+  # Read once: atomic replacement cannot mix fields from different revisions.
+  record="$(jq -ce '
+    select(type == "object") |
+    select(.id | type == "string" and test("^run-[A-Za-z0-9T._-]+$")) |
+    select(.unit | type == "string" and test("^blendos-agent-[A-Za-z0-9T._-]+\\.scope$")) |
+    select(.executable | type == "string") |
+    select(.state | IN("running","succeeded","failed","interrupted")) |
+    select(.started_at | type == "string")
+  ' -- "$file")" || fail 'invalid agent record'
+  unit="$(jq -r .unit <<< "$record")"
+  state="$(jq -r .state <<< "$record")"
+  if [[ "$live" == true && "$state" == running ]]; then
+    properties="$(unit_properties "$unit" 2>/dev/null || true)"
+    if [[ -z "$properties" || "$(property_value "$properties" ActiveState)" != active ]]; then
+      state=state-lost
+    else
+      cpu="$(normalize_metric "$(property_value "$properties" CPUUsageNSec)")"
+      memory="$(normalize_metric "$(property_value "$properties" MemoryCurrent)")"
+    fi
+  fi
+  # Record-internal paths are never followed by status readers or exported.
+  time_file="${file%/*}/time"
+  if [[ -f "$time_file" && ! -L "$time_file" ]]; then
+    read -r elapsed user_cpu system_cpu rss reported < "$time_file" || true
+  fi
+  jq -c --arg state "$state" --arg cpu "$cpu" --arg memory "$memory" \
+    --arg elapsed "$elapsed" --arg user_cpu "$user_cpu" --arg system_cpu "$system_cpu" \
+    --arg rss "$rss" '
+    def counter: if type == "string" and test("^(0|[1-9][0-9]*)$") and . != "18446744073709551615" then . else null end;
+    def seconds: if test("^[0-9]+(\\.[0-9]+)?$") then . else null end;
+    {id,project_id:(.project_id // null),label:.executable,unit,state:$state,
+     started_at,ended_at:(if (.ended_at // "") == "" then null else .ended_at end),
+     exit_status:(if (.rawstatus // "") | test("^[0-9]{1,3}$") then .rawstatus | tonumber else null end),
+     cpu_usage_ns:((if $cpu == "" then .cpu_usage_ns else $cpu end) | counter),
+     memory_bytes:((if $memory == "" then .memory_current else $memory end) | counter),
+     max_rss_kib:($rss | counter),wall_seconds:($elapsed | seconds),
+     user_cpu_seconds:($user_cpu | seconds),system_cpu_seconds:($system_cpu | seconds),
+     provider_usage:null}
+  ' <<< "$record"
+}
+
+wait_for_terminal() {
+  if [[ "${1:-}" == --wait && -t 0 ]]; then
+    read -r -p 'Press Enter to close this window: ' _ || true
+  fi
+}
+
+status_run() {
+  local file result
+  file="$(record_path "$1")"
+  [[ -f "$file" && ! -L "$file" ]] || fail "unknown run: $1"
+  result="$(record_json "$file" true)"
+  jq -cn --argjson result "$result" '{schema_version:1,data:{items:[$result]}}'
+  wait_for_terminal "${2:-}"
+  if [[ "$(jq -r .state <<< "$result")" == state-lost ]]; then
+    printf '%s: run unit is no longer active; state-lost\n' "$program_name" >&2
+    return 1
+  fi
+}
+
+list_runs() {
+  [[ $# == 0 || ( $# == 1 && "$1" == --wait ) ]] || { usage >&2; exit 2; }
+  need_command jq
+  shopt -s nullglob
+  local file rows=''
+  for file in "$runs_root"/*/record.json; do
+    [[ -f "$file" && ! -L "$file" && ! -L "${file%/*}" ]] || continue
+    rows+="$(record_json "$file")"$'\n'
+  done
+  # Persisted facts only. The socket adapter overlays live systemd observations.
+  jq -cs '{schema_version:1,data:{items:.}}' <<< "$rows"
+  wait_for_terminal "${1:-}"
+}
+
+command_name="${1:-}"
+case "$command_name" in
+  run) shift; run_agent "$@" ;;
+  status)
+    shift
+    wait_flag=''
+    if (( $# == 2 )) && [[ "${2:-}" == --wait ]]; then
+      wait_flag=--wait
+      set -- "$1"
+    fi
+    (($# == 1)) || { usage >&2; exit 2; }
+    status_run "$1" "$wait_flag"
+    ;;
+  list) shift; list_runs "$@" ;;
+  -h|--help) usage ;;
+  *) usage >&2; exit 2 ;;
+esac

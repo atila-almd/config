@@ -1,0 +1,174 @@
+{
+  "recording": {
+    "observed_at": "2026-09-12T00:00:00Z",
+    "status": "ready",
+    "topic": "recording",
+    "schema_version": 1,
+    "data": {
+      "run_id": null,
+      "state": "idle",
+      "can_stop": false
+    },
+    "error": null,
+    "revision": "fixture",
+    "type": "snapshot"
+  },
+  "appearance": {
+    "observed_at": "2026-09-12T00:00:00Z",
+    "status": "ready",
+    "topic": "appearance",
+    "schema_version": 1,
+    "data": {
+      "release_id": "preview-release",
+      "themes": [
+        {
+          "label": "Catppuccin Mocha",
+          "mode": "dark",
+          "id": "catppuccin-mocha"
+        }
+      ],
+      "settings": {
+        "schema_version": 1
+      },
+      "theme_id": "catppuccin-mocha",
+      "wallpaper_id": "fixture",
+      "wallpapers": [
+        {
+          "id": "fixture",
+          "label": "Fixture wallpaper"
+        }
+      ]
+    },
+    "error": null,
+    "revision": "fixture",
+    "type": "snapshot"
+  },
+  "power": {
+    "observed_at": "2026-09-12T00:00:00Z",
+    "status": "ready",
+    "topic": "power",
+    "schema_version": 1,
+    "data": {
+      "actions": [
+        {
+          "authorization": "yes",
+          "available": true,
+          "id": "lock"
+        },
+        {
+          "authorization": "yes",
+          "available": true,
+          "id": "suspend"
+        },
+        {
+          "authorization": "yes",
+          "available": true,
+          "id": "logout"
+        },
+        {
+          "authorization": "yes",
+          "available": true,
+          "id": "reboot"
+        },
+        {
+          "authorization": "yes",
+          "available": true,
+          "id": "shutdown"
+        }
+      ]
+    },
+    "error": null,
+    "revision": "fixture",
+    "type": "snapshot"
+  },
+  "audio": {
+    "observed_at": "2026-09-12T00:00:00Z",
+    "status": "ready",
+    "topic": "audio",
+    "schema_version": 1,
+    "data": {
+      "default_output_id": "42",
+      "items": [
+        {
+          "available": true,
+          "muted": false,
+          "volume": 0.55,
+          "direction": "output",
+          "label": "Speakers",
+          "id": "42"
+        }
+      ],
+      "default_input_id": null
+    },
+    "error": null,
+    "revision": "fixture",
+    "type": "snapshot"
+  },
+  "network": {
+    "observed_at": "2026-09-12T00:00:00Z",
+    "status": "ready",
+    "topic": "network",
+    "schema_version": 1,
+    "data": {
+      "items": [
+        {
+          "label": "Wired network",
+          "interface": "enp1s0",
+          "state": "connected",
+          "carrier": true,
+          "id": "/org/freedesktop/NetworkManager/Devices/2"
+        }
+      ]
+    },
+    "error": null,
+    "revision": "fixture",
+    "type": "snapshot"
+  },
+  "media": {
+    "observed_at": "2026-09-12T00:00:00Z",
+    "status": "ready",
+    "topic": "media",
+    "schema_version": 1,
+    "data": {
+      "items": [
+        {
+          "can_pause": false,
+          "artist": "Sample artist",
+          "can_next": true,
+          "id": "org.mpris.MediaPlayer2.fixture",
+          "title": "Fixture track",
+          "can_play": true,
+          "state": "paused",
+          "label": "Music",
+          "can_previous": false
+        }
+      ]
+    },
+    "error": null,
+    "revision": "fixture",
+    "type": "snapshot"
+  },
+  "outputs": {
+    "observed_at": "2026-09-12T00:00:00Z",
+    "status": "ready",
+    "topic": "outputs",
+    "schema_version": 1,
+    "data": {
+      "items": [
+        {
+          "height": 1080,
+          "scale": 1,
+          "id": "HDMI-A-1",
+          "width": 1920,
+          "y": 0,
+          "x": 0,
+          "focused": true,
+          "label": "Desktop display"
+        }
+      ]
+    },
+    "error": null,
+    "revision": "fixture",
+    "type": "snapshot"
+  }
+}

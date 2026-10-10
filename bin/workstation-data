@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+executable="$HOME/.local/libexec/blendos-workstation/workstation-data"
+[[ -x "$executable" ]] || { printf 'workstation-data is not built; run bash install.sh --config-only.\n' >&2; exit 1; }
+exec "$executable" "$@"

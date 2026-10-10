@@ -1,0 +1,14 @@
+[Unit]
+Description=Workstation desktop data subscriptions
+Requisite=graphical-session.target
+After=graphical-session.target
+After=blendos-workstation-session.target
+PartOf=blendos-workstation-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/libexec/blendos-workstation/workstation-data serve
+Environment=PATH=%h/.local/bin/blend_bin:/usr/local/bin:/usr/bin
+UMask=0077
+Restart=on-failure
+RestartSec=2

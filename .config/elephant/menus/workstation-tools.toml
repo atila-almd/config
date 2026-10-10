@@ -1,0 +1,49 @@
+name = "workstation-tools"
+name_pretty = "Tools"
+icon = "applications-system"
+fixed_order = true
+
+[[entries]]
+text = "Backup status"
+icon = "drive-harddisk"
+actions = { "show" = "session-terminal -e workstation-backup status --wait" }
+
+[[entries]]
+text = "Update checkpoint status"
+icon = "system-software-update"
+actions = { "show" = "session-terminal -e workstation-maintain status --wait" }
+
+[[entries]]
+text = "Agent runs"
+icon = "utilities-system-monitor"
+actions = { "show" = "session-terminal -e workstation-agent list --wait" }
+
+[[entries]]
+text = "Workstation diagnostics"
+icon = "dialog-information"
+actions = { "show" = "session-terminal -e workstation-doctor all --wait" }
+
+[[entries]]
+text = "Pending reminders"
+icon = "appointment-soon"
+actions = { "show" = "session-terminal -e workstation-remind list --wait" }
+
+[[entries]]
+text = "Zen Browser"
+icon = "web-browser"
+actions = { "open" = "zen-browser" }
+
+[[entries]]
+text = "System monitor"
+icon = "utilities-system-monitor"
+actions = { "open" = "session-terminal -e btop" }
+
+[[entries]]
+text = "File manager"
+icon = "system-file-manager"
+actions = { "open" = "session-terminal -e yazi" }
+
+[[entries]]
+text = "Editor"
+icon = "accessories-text-editor"
+actions = { "open" = "session-terminal -e nvim" }

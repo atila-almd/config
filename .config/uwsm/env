@@ -1,0 +1,3 @@
+# UWSM reads this file before starting the graphical session. Keep the
+# project-owned helpers available to Hyprland bindings and user services.
+export PATH="$HOME/.local/bin/blend_bin:$HOME/.local/bin:$PATH"

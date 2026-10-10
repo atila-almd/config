@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+set -euo pipefail
+exec "$HOME/.local/libexec/blendos-workstation/workstation-lock-guard" suspend

@@ -1,0 +1,7 @@
+[Unit]
+Description=Run the configured blendOS workstation backup
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/blend_bin/workstation-backup run scheduled
+UMask=0077

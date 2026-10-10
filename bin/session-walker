@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+if [[ "$(systemd-detect-virt 2>/dev/null || true)" == 'oracle' ]]; then
+  # VirtualBox's accelerated VMSVGA path crashes Walker's GTK renderer.
+  export GSK_RENDERER="${GSK_RENDERER:-cairo}"
+fi
+
+if ! walker_bin="$(command -v walker)"; then
+  printf 'session-walker: walker is not installed or not in PATH\n' >&2
+  exit 127
+fi
+
+exec "$walker_bin" "$@"

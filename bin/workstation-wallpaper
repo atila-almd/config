@@ -1,0 +1,326 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+program_name="${0##*/}"
+resolved_script="$(readlink -f -- "${BASH_SOURCE[0]}" 2>/dev/null || true)"
+[[ -n "$resolved_script" && -f "$resolved_script" ]] || {
+  printf '%s: unable to resolve the helper path\n' "$program_name" >&2
+  exit 1
+}
+script_dir="$(cd -- "$(dirname -- "$resolved_script")" && pwd -P)"
+repo_dir="$(cd -- "$script_dir/.." && pwd -P)"
+
+builtin_home="${BLENDOS_WORKSTATION_THEME_BUILTIN_HOME:-$repo_dir/themes}"
+config_home="${BLENDOS_WORKSTATION_THEME_CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}}"
+state_home="${BLENDOS_WORKSTATION_THEME_STATE_HOME:-${XDG_STATE_HOME:-$HOME/.local/state}}"
+user_theme_home="$config_home/blendos-workstation/themes"
+theme_state_root="$state_home/blendos-workstation/theme"
+release_root="$theme_state_root/releases"
+current_link="$theme_state_root/current"
+wallpaper_state_root="$theme_state_root/wallpapers"
+
+fail() {
+  printf '%s: %s\n' "$program_name" "$*" >&2
+  exit 1
+}
+
+need_command() {
+  command -v -- "$1" >/dev/null 2>&1 || fail "required command is unavailable: $1"
+}
+
+ensure_state_root() {
+  [[ ! -L "$theme_state_root" ]] || fail "theme state root must not be a symlink"
+  install -d -m0700 -- "$state_home/blendos-workstation"
+  [[ ! -L "$state_home/blendos-workstation" ]] || fail 'state parent must not be a symlink'
+  install -d -m0700 -- "$theme_state_root" "$wallpaper_state_root"
+  [[ ! -L "$theme_state_root" && ! -L "$wallpaper_state_root" ]] ||
+    fail 'wallpaper state path must not be a symlink'
+  chmod 0700 -- "$theme_state_root" "$wallpaper_state_root"
+}
+
+source "$script_dir/workstation-appearance-common.sh"
+
+active_release() {
+  local target release_real release_root_real
+  [[ -L "$current_link" ]] || fail 'no active theme release exists'
+  target="$(resolved_or_empty "$current_link")"
+  release_real="$(resolved_or_empty "$target")"
+  release_root_real="$(resolved_or_empty "$release_root")"
+  [[ -n "$release_real" && -n "$release_root_real" ]] || fail 'active theme release is unresolved'
+  case "$release_real" in
+    "$release_root_real"/release-*) ;;
+    *) fail 'active theme release is outside the release root' ;
+  esac
+  [[ -d "$release_real" && -f "$release_real/manifest.json" ]] ||
+    fail 'active theme release is incomplete'
+  printf '%s\n' "$release_real"
+}
+
+theme_source_dir() {
+  local theme_id="$1"
+  local user_dir="$user_theme_home/$theme_id"
+  local builtin_dir="$builtin_home/$theme_id"
+  if [[ -f "$user_dir/theme.json" ]]; then
+    printf '%s\n' "$user_dir"
+  elif [[ -f "$builtin_dir/theme.json" ]]; then
+    printf '%s\n' "$builtin_dir"
+  else
+    fail "source for active theme is unavailable: $theme_id"
+  fi
+}
+
+load_active() {
+  local release manifest theme_id source_dir source_real wallpaper path resolved
+  release="$(active_release)"
+  manifest="$release/manifest.json"
+  jq -e '
+    (.schema == 1) and
+    (.id | type == "string" and test("^[a-z0-9][a-z0-9-]*$")) and
+    (.wallpapers | type == "array" and length > 0 and all(.[]; (.name | type == "string" and length > 0) and (.path | type == "string" and length > 0 and (startswith("/") | not) and (test("(^|/)\\.\\.($|/)") | not))))
+  ' -- "$manifest" >/dev/null || fail 'active theme manifest failed validation'
+  theme_id="$(jq -er '.id' -- "$manifest")"
+  source_dir="$(theme_source_dir "$theme_id")"
+  source_real="$(resolved_or_empty "$source_dir")"
+  [[ -n "$source_real" ]] || fail 'active theme source cannot be resolved'
+  while IFS= read -r wallpaper; do
+    path="$source_dir/$wallpaper"
+    [[ -f "$path" ]] || fail "active wallpaper is missing: $wallpaper"
+    resolved="$(resolved_or_empty "$path")"
+    case "$resolved" in
+      "$source_real"/*) ;;
+      *) fail "active wallpaper escapes the theme source: $wallpaper" ;
+    esac
+  done < <(jq -er '.wallpapers[].path' -- "$manifest")
+  printf '%s\t%s\t%s\n' "$release" "$manifest" "$theme_id"
+}
+
+read_index() {
+  local theme_id="$1"
+  local index_file="$wallpaper_state_root/$theme_id.index"
+  local index
+  [[ ! -L "$wallpaper_state_root" ]] || fail 'wallpaper state path must not be a symlink'
+  if [[ ! -e "$wallpaper_state_root" ]]; then
+    printf '0\n'
+    return
+  fi
+  [[ -d "$wallpaper_state_root" ]] || fail 'wallpaper state path must be a directory'
+  assert_inside "$index_file"
+  if [[ -f "$index_file" && ! -L "$index_file" ]]; then
+    index="$(tr -d '[:space:]' < "$index_file")"
+    [[ "$index" =~ ^[0-9]+$ ]] || index=0
+  else
+    index=0
+  fi
+  printf '%s\n' "$index"
+}
+
+write_index() {
+  local theme_id="$1"
+  local index="$2"
+  local index_file="$wallpaper_state_root/$theme_id.index"
+  local temporary="$wallpaper_state_root/.index-$$-$RANDOM"
+  assert_inside "$temporary"
+  printf '%s\n' "$index" > "$temporary"
+  chmod 0600 -- "$temporary"
+  mv -T -- "$temporary" "$index_file"
+  chmod 0600 -- "$index_file"
+}
+
+wallpaper_count() {
+  local manifest="$1"
+  jq -er '.wallpapers | length' -- "$manifest"
+}
+
+wallpaper_name() {
+  local manifest="$1"
+  local index="$2"
+  jq -er --argjson index "$index" '.wallpapers[$index].name' -- "$manifest"
+}
+
+wallpaper_source() {
+  local manifest="$1"
+  local index="$2"
+  jq -er --argjson index "$index" '.wallpapers[$index].path' -- "$manifest"
+}
+
+image_for_index() {
+  local release="$1"
+  local manifest="$2"
+  local theme_id="$3"
+  local index="$4"
+  local source_dir source image
+  source_dir="$(theme_source_dir "$theme_id")"
+  if ((index == 0)); then
+    image="$release/wallpaper.png"
+    [[ -f "$image" ]] || fail 'active release has no default wallpaper image'
+  else
+    image="$wallpaper_state_root/$theme_id-$index.png"
+    assert_inside "$image"
+    source="$source_dir/$(wallpaper_source "$manifest" "$index")"
+    if [[ ! -f "$image" || "$source" -nt "$image" ]]; then
+      local temporary="$wallpaper_state_root/.$theme_id-$index-$$-$RANDOM.png"
+      assert_inside "$temporary"
+      render_wallpaper "$source" "$temporary"
+      chmod 0644 -- "$temporary"
+      mv -T -- "$temporary" "$image"
+      chmod 0644 -- "$image"
+    fi
+  fi
+  printf '%s\n' "$image"
+}
+
+wait_for_awww() {
+  need_command awww
+  local attempt
+  for attempt in 1 2 3 4 5 6 7 8 9 10; do
+    if awww query >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.5
+  done
+  fail 'Awww did not become ready within five seconds'
+}
+
+apply_index() {
+  local release="$1"
+  local manifest="$2"
+  local theme_id="$3"
+  local index="$4"
+  local image
+  image="$(image_for_index "$release" "$manifest" "$theme_id" "$index")"
+    wait_for_awww
+    awww img --transition-type fade --transition-duration 0.25 -- "$image" ||
+      fail "Awww failed to apply wallpaper index $index"
+  write_index "$theme_id" "$index"
+  printf 'Wallpaper %s: %s\n' "$index" "$(wallpaper_name "$manifest" "$index")"
+}
+
+active_context() {
+  local release manifest theme_id
+  IFS=$'\t' read -r release manifest theme_id < <(load_active)
+  printf '%s\t%s\t%s\n' "$release" "$manifest" "$theme_id"
+}
+
+list_wallpapers() {
+  local release manifest theme_id count index
+  IFS=$'\t' read -r release manifest theme_id < <(active_context)
+  count="$(wallpaper_count "$manifest")"
+  for ((index = 0; index < count; index++)); do
+    printf '%s\t%s\n' "$index" "$(wallpaper_name "$manifest" "$index")"
+  done
+}
+
+choose_wallpaper() {
+  local release manifest theme_id count index choice selected selected_index
+  IFS=$'\t' read -r release manifest theme_id < <(active_context)
+  count="$(wallpaper_count "$manifest")"
+  choice="$(for ((index = 0; index < count; index++)); do
+    printf '%s [%s]\n' "$(wallpaper_name "$manifest" "$index")" "$index"
+  done | walker --dmenu --placeholder Wallpaper || true)"
+  [[ -n "$choice" ]] || return 0
+  selected_index=''
+  while IFS=$'\t' read -r index selected; do
+    if [[ "$choice" == "$selected [$index]" ]]; then
+      selected_index="$index"
+      break
+    fi
+  done < <(list_wallpapers)
+  [[ "$selected_index" =~ ^[0-9]+$ ]] || fail 'wallpaper chooser returned an unknown selection'
+  apply_index "$release" "$manifest" "$theme_id" "$selected_index"
+}
+
+usage() {
+  cat <<'EOF'
+Usage:
+  workstation-wallpaper list
+  workstation-wallpaper snapshot
+  workstation-wallpaper current
+  workstation-wallpaper restore
+  workstation-wallpaper next
+  workstation-wallpaper previous
+  workstation-wallpaper choose
+  workstation-wallpaper set INDEX [--expect-theme THEME --expect-release RELEASE]
+EOF
+}
+
+public_snapshot() {
+  local release manifest theme_id index=0 index_file
+  if [[ ! -e "$current_link" && ! -L "$current_link" ]]; then
+    printf '{"schema_version":1,"data":{"theme_id":null,"release_id":null,"wallpaper_id":null,"items":[]}}\n'; return
+  fi
+  release="$(active_release)"; manifest="$release/manifest.json"
+  jq -e '.schema==1 and (.wallpapers|type=="array" and length>0 and all(.[]; .name|type=="string" and length>0))' -- "$manifest" >/dev/null || fail 'active wallpaper metadata is invalid'
+  theme_id="$(jq -er '.id|select(test("^[a-z0-9][a-z0-9-]*$"))' -- "$manifest")" || return 1
+  index_file="$wallpaper_state_root/$theme_id.index"
+  if [[ -e "$index_file" || -L "$index_file" ]]; then
+    [[ -f "$index_file" && ! -L "$index_file" ]] || fail 'wallpaper index is not a regular file'
+    index="$(cat -- "$index_file")"; [[ "$index" =~ ^[0-9]{1,6}$ ]] || return 1
+    index=$((10#$index))
+  fi
+  jq -cn --slurpfile manifest "$manifest" --arg release "${release##*/}" --argjson index "$index" '{schema_version:1,data:{theme_id:$manifest[0].id,release_id:$release,wallpaper_id:(if $index<($manifest[0].wallpapers|length) then $index else 0 end|tostring),items:($manifest[0].wallpapers|to_entries|map({id:(.key|tostring),label:.value.name}))}}'
+}
+
+command_name="${1:-}"
+case "$command_name" in restore|next|previous|set|choose) lock_appearance;; esac
+case "$command_name" in
+  snapshot) (($# == 1)) || exit 2; need_command jq; public_snapshot ;;
+  list)
+    (($# == 1)) || { usage >&2; exit 2; }
+    need_command jq
+    list_wallpapers
+    ;;
+  current)
+    (($# == 1)) || { usage >&2; exit 2; }
+    need_command jq
+    IFS=$'\t' read -r release manifest theme_id < <(active_context)
+    count="$(wallpaper_count "$manifest")"
+    index="$(read_index "$theme_id")"
+    if ((index >= count)); then index=0; fi
+    printf '%s\t%s\t%s\n' "$theme_id" "$index" "$(wallpaper_name "$manifest" "$index")"
+    ;;
+  restore)
+    (($# == 1)) || { usage >&2; exit 2; }
+    need_command jq
+    IFS=$'\t' read -r release manifest theme_id < <(active_context)
+    count="$(wallpaper_count "$manifest")"
+    index="$(read_index "$theme_id")"
+    if ((index >= count)); then index=0; fi
+    apply_index "$release" "$manifest" "$theme_id" "$index"
+    ;;
+  next|previous)
+    (($# == 1)) || { usage >&2; exit 2; }
+    need_command jq
+    IFS=$'\t' read -r release manifest theme_id < <(active_context)
+    count="$(wallpaper_count "$manifest")"
+    index="$(read_index "$theme_id")"
+    if ((index >= count)); then index=0; fi
+    if [[ "$command_name" == next ]]; then
+      index=$(( (index + 1) % count ))
+    else
+      index=$(( (index + count - 1) % count ))
+    fi
+    apply_index "$release" "$manifest" "$theme_id" "$index"
+    ;;
+  set)
+    [[ ($# == 2 || ($# == 6 && "$3" == --expect-theme && "$5" == --expect-release)) && "$2" =~ ^[0-9]{1,6}$ ]] || { usage >&2; exit 2; }
+    need_command jq
+    IFS=$'\t' read -r release manifest theme_id < <(active_context)
+    if (($# == 6)); then [[ "$theme_id" == "$4" && "${release##*/}" == "$6" ]] || exit 75; fi
+    count="$(wallpaper_count "$manifest")"
+    (( 10#$2 < count )) || fail "wallpaper index is out of range: $2"
+    apply_index "$release" "$manifest" "$theme_id" "$((10#$2))"
+    ;;
+  choose)
+    (($# == 1)) || { usage >&2; exit 2; }
+    need_command jq
+    choose_wallpaper
+    ;;
+  -h|--help)
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac

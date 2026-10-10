@@ -1,0 +1,4 @@
+module WorkstationShared
+AuthForm 1.0 AuthForm.qml
+ThemedPane 1.0 ThemedPane.qml
+Contract 1.0 Contract.js

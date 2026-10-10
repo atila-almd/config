@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Workstation
+Comment=Managed Quickshell workstation through UWSM
+Exec=Hyprland
+TryExec=Hyprland
+Type=Application
+DesktopNames=Hyprland

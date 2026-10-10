@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily configured blendOS workstation backup
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=15m
+Unit=blendos-backup.service
+
+[Install]
+WantedBy=timers.target

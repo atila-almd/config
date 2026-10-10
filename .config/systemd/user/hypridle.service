@@ -1,0 +1,12 @@
+[Unit]
+Description=Workstation idle lock and display lifecycle
+Requisite=graphical-session.target
+Requires=workstation-lock-guard.service
+After=blendos-workstation-session.target workstation-lock-guard.service
+PartOf=blendos-workstation-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/hypridle
+Restart=on-failure
+RestartSec=2

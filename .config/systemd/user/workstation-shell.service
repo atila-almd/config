@@ -1,0 +1,15 @@
+[Unit]
+Description=Island Quickshell desktop shell
+Requisite=graphical-session.target
+Requires=workstation-data.service
+After=graphical-session.target workstation-data.service
+After=blendos-workstation-session.target
+PartOf=blendos-workstation-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/blend_bin/session-workstation-shell --run
+Environment=PATH=%h/.local/bin/blend_bin:/usr/local/bin:/usr/bin
+UMask=0077
+Restart=on-failure
+RestartSec=2

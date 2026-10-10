@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+identity_root="${BLENDOS_WORKSTATION_IDENTITY_ROOT:-/etc/blendos-workstation/identity}"
+export QML_IMPORT_PATH="$identity_root"
+export QML2_IMPORT_PATH="$identity_root"
+exec /usr/bin/qs -p "$identity_root"

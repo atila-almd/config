@@ -1,0 +1,338 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+program_name="${0##*/}"
+state_root="${BLENDOS_WORKSTATION_PROJECT_STATE_HOME:-${XDG_STATE_HOME:-$HOME/.local/state}/blendos-workstation/projects}"
+entries_dir="$state_root/entries"
+selected_file="$state_root/selected"
+dispatch=false
+
+usage() {
+  cat <<'EOF'
+Usage:
+  workstation-project add ID DIRECTORY
+  workstation-project remove ID
+  workstation-project list
+  workstation-project path ID
+  workstation-project choose [ID]
+  workstation-project open [ID] [terminal|editor]
+  workstation-project run ID -- COMMAND [ARGUMENT...]
+  workstation-project agent ID -- COMMAND [ARGUMENT...]
+  workstation-project dispatch open|run|agent ARGUMENT...
+  workstation-project instructions ID --init
+
+Project paths and the selected project are stored in Local State under
+~/.local/state/blendos-workstation/projects/. Commands are passed as argv;
+they are never evaluated by a shell.
+EOF
+}
+
+fail() {
+  printf '%s: %s\n' "$program_name" "$*" >&2
+  exit 1
+}
+
+need_command() {
+  command -v -- "$1" >/dev/null 2>&1 || {
+    printf '%s: required command is unavailable: %s\n' "$program_name" "$1" >&2
+    exit 127
+  }
+}
+
+validate_id() {
+  [[ "${1:-}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] ||
+    fail "invalid project ID: ${1:-<empty>}"
+}
+
+ensure_state() {
+  install -d -m0700 -- "$entries_dir"
+}
+
+entry_file() {
+  validate_id "$1"
+  printf '%s/%s' "$entries_dir" "$1"
+}
+
+read_registered_path() {
+  local id="$1" file path
+  file="$(entry_file "$id")"
+  [[ -f "$file" && ! -L "$file" ]] || fail "unknown project: $id"
+  local -a lines
+  mapfile -t lines < "$file"
+  ((${#lines[@]} == 1)) || fail "invalid project entry: $id"
+  path="${lines[0]}"
+  [[ -n "$path" && "$path" != *$'\t'* ]] || fail "invalid project entry: $id"
+  printf '%s\n' "$path"
+}
+
+read_entry() {
+  local id="$1" path
+  path="$(read_registered_path "$id")"
+  [[ -d "$path" ]] || fail "project directory is missing: $path"
+  readlink -f -- "$path"
+}
+
+print_project_path() {
+  (($# == 1)) || { usage >&2; exit 2; }
+  validate_id "$1"
+  read_entry "$1"
+}
+
+read_selected() {
+  local id
+  [[ -f "$selected_file" && ! -L "$selected_file" ]] ||
+    fail 'no project selected; run choose first'
+  IFS= read -r id < "$selected_file" || true
+  validate_id "$id"
+  read_entry "$id" >/dev/null
+  printf '%s\n' "$id"
+}
+
+save_selected() {
+  local id="$1" temporary
+  ensure_state
+  temporary="$(mktemp "$state_root/.selected.XXXXXX")"
+  printf '%s\n' "$id" > "$temporary"
+  chmod 0600 -- "$temporary"
+  mv -- "$temporary" "$selected_file"
+}
+
+add_project() {
+  local id="${1:-}" raw_directory="${2:-}" directory target temporary
+  (($# == 2)) || { usage >&2; exit 2; }
+  validate_id "$id"
+  [[ -n "$raw_directory" ]] || fail 'project directory is required'
+  [[ "$raw_directory" != *$'\n'* && "$raw_directory" != *$'\t'* ]] ||
+    fail 'project directory may not contain a newline or tab'
+  [[ -d "$raw_directory" ]] || fail "project directory is missing: $raw_directory"
+  need_command readlink
+  directory="$(readlink -f -- "$raw_directory")"
+  [[ "$directory" != *$'\n'* && "$directory" != *$'\t'* ]] ||
+    fail 'canonical project directory may not contain a newline or tab'
+  target="$(entry_file "$id")"
+  [[ ! -e "$target" && ! -L "$target" ]] || fail "project already exists: $id"
+  ensure_state
+  temporary="$(mktemp "$state_root/.entry.XXXXXX")"
+  printf '%s\n' "$directory" > "$temporary"
+  chmod 0600 -- "$temporary"
+  mv -- "$temporary" "$target"
+  printf 'Added project %s.\n' "$id"
+}
+
+remove_project() {
+  local id="${1:-}" target selected
+  (($# == 1)) || { usage >&2; exit 2; }
+  validate_id "$id"
+  target="$(entry_file "$id")"
+  [[ -f "$target" && ! -L "$target" ]] || fail "unknown project: $id"
+  rm -- "$target"
+  if [[ -f "$selected_file" ]]; then
+    IFS= read -r selected < "$selected_file" || true
+    [[ "$selected" != "$id" ]] && return 0
+    rm -f -- "$selected_file"
+  fi
+}
+
+list_projects() {
+  local file id path available selected='' rows=''
+  need_command jq
+  # Snapshots are read-only, including before the first registration.
+  if [[ -f "$selected_file" && ! -L "$selected_file" ]]; then
+    IFS= read -r selected < "$selected_file" || true
+    [[ -z "$selected" ]] || validate_id "$selected"
+  fi
+  shopt -s nullglob
+  for file in "$entries_dir"/*; do
+    [[ -f "$file" && ! -L "$file" ]] || continue
+    id="${file##*/}"
+    validate_id "$id"
+    path="$(read_registered_path "$id")"
+    available=false
+    [[ ! -d "$path" ]] || available=true
+    rows+="$(jq -cn --arg id "$id" --argjson available "$available" \
+      '{id:$id,label:$id,directory_available:$available}')"$'\n'
+  done
+  jq -cs --arg selected "$selected" \
+    '{schema_version:1,data:{items:.,selected_id:
+      (if any(.[]; .id == $selected) then $selected else null end)}}' <<< "$rows"
+}
+
+resolve_command() {
+  local directory="$1" command_name="$2" resolved
+  if [[ "$command_name" == */* ]]; then
+    if [[ "$command_name" == /* ]]; then
+      resolved="$(readlink -f -- "$command_name" 2>/dev/null || true)"
+    else
+      resolved="$(readlink -f -- "$directory/$command_name" 2>/dev/null || true)"
+    fi
+  else
+    resolved="$(cd -- "$directory" && type -P -- "$command_name" 2>/dev/null || true)"
+    if [[ -n "$resolved" && "$resolved" != /* ]]; then
+      resolved="$(readlink -f -- "$directory/$resolved")"
+    fi
+  fi
+  [[ -f "$resolved" && -x "$resolved" ]] || {
+    printf '%s: command is unavailable: %s\n' "$program_name" "$command_name" >&2
+    exit 127
+  }
+  printf '%s\n' "$resolved"
+}
+
+choose_project() {
+  local id="${1:-}" selected
+  (($# <= 1)) || { usage >&2; exit 2; }
+  if [[ -n "$id" ]]; then
+    validate_id "$id"
+    read_entry "$id" >/dev/null
+  else
+    ensure_state
+    [[ -n "$(find "$entries_dir" -mindepth 1 -maxdepth 1 -type f -print -quit)" ]] ||
+      fail 'no projects are registered'
+    need_command walker
+    local chooser_status=0
+    selected="$(list_projects | jq -r '.data.items[].id' | walker --dmenu --placeholder Project)" ||
+      chooser_status=$?
+    if ((chooser_status != 0)); then
+      [[ "$chooser_status" == 1 && -z "$selected" ]] && return 0
+      return "$chooser_status"
+    fi
+    [[ -n "$selected" ]] || return 0
+    validate_id "$selected"
+    read_entry "$selected" >/dev/null
+    id="$selected"
+  fi
+  save_selected "$id"
+  printf 'Selected project %s.\n' "$id"
+  open_project "$id" terminal
+}
+
+launch_terminal() {
+  local directory="$1"
+  shift
+  (($# > 0)) || fail 'terminal command is empty'
+  need_command session-terminal
+  if [[ "$dispatch" == true ]]; then
+    need_command systemd-run
+    exec systemd-run --user --collect --quiet --service-type=exec \
+      --property=PartOf=graphical-session.target \
+      --property=Requisite=graphical-session.target \
+      --property=After=graphical-session.target -- \
+      "$(command -v session-terminal)" "--working-directory=$directory" -e "$@"
+  fi
+  exec session-terminal "--working-directory=$directory" -e "$@"
+}
+
+open_project() {
+  local id="${1:-}" mode="${2:-terminal}" directory shell editor
+  (($# <= 2)) || { usage >&2; exit 2; }
+  if [[ -z "$id" ]]; then
+    id="$(read_selected)"
+  else
+    validate_id "$id"
+  fi
+  [[ "$mode" == terminal || "$mode" == editor ]] ||
+    fail "unknown open mode: $mode"
+  directory="$(read_entry "$id")"
+  if [[ "$mode" == editor ]]; then
+    editor="$(resolve_command "$directory" nvim)"
+    launch_terminal "$directory" "$editor"
+  fi
+  shell="${SHELL:-/bin/sh}"
+  shell="$(resolve_command "$directory" "$shell")"
+  launch_terminal "$directory" "$shell"
+}
+
+run_project() {
+  (($# >= 4)) || { usage >&2; exit 2; }
+  local action="$1" id="${2:-}" directory
+  shift 2
+  (( $# >= 2 )) && [[ "${1:-}" == -- ]] || { usage >&2; exit 2; }
+  shift
+  (($# > 0)) || fail "$action requires an explicit command after --"
+  validate_id "$id"
+  directory="$(read_entry "$id")"
+  local executable
+  executable="$(resolve_command "$directory" "$1")"
+  shift
+  if [[ "$action" == agent ]]; then
+    need_command workstation-agent
+    launch_terminal "$directory" "$(command -v workstation-agent)" run "$id" -- "$executable" "$@"
+  fi
+  launch_terminal "$directory" "$executable" "$@"
+}
+
+initialize_instructions() {
+  local id="${1:-}" flag="${2:-}" directory destination template temporary
+  if (( $# != 2 )) || [[ "$flag" != --init ]]; then usage >&2; exit 2; fi
+  validate_id "$id"
+  directory="$(read_entry "$id")"
+  local script_path repo_dir
+  script_path="$(readlink -f -- "${BASH_SOURCE[0]}")"
+  repo_dir="$(cd -- "$(dirname -- "$script_path")/.." && pwd -P)"
+  template="$repo_dir/services/development/AGENTS.template.md"
+  [[ -f "$template" && ! -L "$template" ]] || fail 'AGENTS.template.md is unavailable'
+  destination="$directory/AGENTS.md"
+  [[ ! -e "$destination" && ! -L "$destination" ]] ||
+    fail "refusing to replace existing project instructions: $destination"
+  temporary="$(mktemp "$directory/.AGENTS.md.XXXXXX")" ||
+    fail "unable to create project instructions: $destination"
+  if ! cat -- "$template" > "$temporary"; then
+    rm -f -- "$temporary"
+    fail "unable to write project instructions: $destination"
+  fi
+  chmod 0644 -- "$temporary"
+  mv -T -n -- "$temporary" "$destination"
+  if [[ -e "$temporary" ]]; then
+    rm -f -- "$temporary"
+    fail "refusing to replace existing project instructions: $destination"
+  fi
+  printf 'Initialized %s.\n' "$destination"
+}
+
+command_name="${1:-}"
+if [[ "$command_name" == dispatch ]]; then
+  shift
+  command_name="${1:-}"
+  case "$command_name" in open|run|agent) dispatch=true ;; *) usage >&2; exit 2 ;; esac
+fi
+case "$command_name" in
+  add)
+    shift
+    add_project "$@"
+    ;;
+  remove)
+    shift
+    remove_project "$@"
+    ;;
+  list)
+    (($# == 1)) || { usage >&2; exit 2; }
+    list_projects
+    ;;
+  path)
+    shift
+    print_project_path "$@"
+    ;;
+  choose)
+    shift
+    choose_project "$@"
+    ;;
+  open)
+    shift
+    open_project "$@"
+    ;;
+  run|agent)
+    run_project "$@"
+    ;;
+  instructions)
+    shift
+    initialize_instructions "$@"
+    ;;
+  -h|--help)
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac

@@ -1,0 +1,14 @@
+[Unit]
+Description=Awww Wayland wallpaper daemon
+Documentation=man:awww-daemon(1)
+PartOf=blendos-workstation-session.target
+After=blendos-workstation-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/awww-daemon
+ExecStop=/usr/bin/awww kill
+Restart=on-failure
+RestartSec=2s
+Slice=session-graphical.slice

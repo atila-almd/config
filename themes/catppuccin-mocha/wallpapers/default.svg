@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Project-authored geometric wallpaper using Catppuccin palette colors. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 3840 2160">
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#181825"/>
+      <stop offset="0.52" stop-color="#1e1e2e"/>
+      <stop offset="1" stop-color="#11111b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.72" cy="0.36" r="0.7">
+      <stop offset="0" stop-color="#89b4fa" stop-opacity="0.34"/>
+      <stop offset="0.45" stop-color="#cba6f7" stop-opacity="0.13"/>
+      <stop offset="1" stop-color="#1e1e2e" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ribbon" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#94e2d5" stop-opacity="0.12"/>
+      <stop offset="0.5" stop-color="#89b4fa" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#cba6f7" stop-opacity="0.2"/>
+    </linearGradient>
+    <filter id="soft-shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="34"/>
+    </filter>
+  </defs>
+  <rect width="3840" height="2160" fill="url(#background)"/>
+  <rect width="3840" height="2160" fill="url(#glow)"/>
+  <path d="M-160 1790 C 700 1110, 1180 1330, 1850 1700 S 3020 2300, 4080 1390 L4080 2400 L-160 2400Z"
+        fill="#313244" opacity="0.52"/>
+  <path d="M-300 2050 C 690 1380, 1220 1570, 1900 1930 S 3040 2440, 4140 1510"
+        fill="none" stroke="url(#ribbon)" stroke-width="240" opacity="0.6" filter="url(#soft-shadow)"/>
+  <path d="M-300 2030 C 690 1360, 1220 1550, 1900 1910 S 3040 2420, 4140 1490"
+        fill="none" stroke="url(#ribbon)" stroke-width="34" opacity="0.82"/>
+  <g opacity="0.72">
+    <circle cx="2790" cy="720" r="360" fill="#45475a"/>
+    <circle cx="2790" cy="720" r="270" fill="#313244" stroke="#89b4fa" stroke-width="8"/>
+    <circle cx="2790" cy="720" r="156" fill="#1e1e2e" stroke="#cba6f7" stroke-width="7"/>
+    <circle cx="2790" cy="720" r="48" fill="#89b4fa"/>
+  </g>
+  <g fill="#bac2de" opacity="0.55">
+    <circle cx="510" cy="410" r="5"/><circle cx="720" cy="690" r="4"/>
+    <circle cx="1180" cy="320" r="6"/><circle cx="1690" cy="580" r="4"/>
+    <circle cx="2260" cy="280" r="5"/><circle cx="3290" cy="340" r="4"/>
+    <circle cx="3500" cy="900" r="6"/><circle cx="720" cy="1120" r="3"/>
+  </g>
+</svg>

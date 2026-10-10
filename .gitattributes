@@ -1,0 +1,3 @@
+# Every managed text file is consumed by Linux, including extensionless scripts
+# and shell startup files edited through the Windows working tree.
+* text=auto eol=lf

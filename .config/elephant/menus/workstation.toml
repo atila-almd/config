@@ -1,0 +1,80 @@
+name = "workstation"
+name_pretty = "Workstation"
+description = "Desktop controls and tools"
+icon = "computer"
+fixed_order = true
+
+[[entries]]
+text = "Projects"
+icon = "folder-development"
+actions = { "open" = "workstation-project choose" }
+
+[[entries]]
+text = "Themes"
+icon = "preferences-desktop-theme"
+actions = { "choose" = "workstation-theme choose" }
+
+[[entries]]
+text = "Keyboard shortcuts"
+icon = "preferences-desktop-keyboard-shortcuts"
+actions = { "show" = "workstation-keybindings" }
+
+[[entries]]
+text = "Wallpaper"
+icon = "preferences-desktop-wallpaper"
+actions = { "choose" = "workstation-wallpaper choose" }
+
+[[entries]]
+text = "Notifications"
+icon = "preferences-desktop-notification"
+submenu = "workstation-notifications"
+
+[[entries]]
+text = "Audio controls"
+icon = "audio-card"
+actions = { "open" = "workstation-controls audio" }
+
+[[entries]]
+text = "Wired network"
+icon = "network-wired"
+actions = { "open" = "workstation-controls network" }
+
+[[entries]]
+text = "Display controls"
+icon = "video-display"
+actions = { "open" = "workstation-controls display" }
+
+[[entries]]
+text = "Control center layout"
+icon = "preferences-system"
+actions = { "open" = "workstation-controls settings" }
+
+[[entries]]
+text = "Power"
+icon = "system-shutdown"
+actions = { "open" = "workstation-controls power" }
+
+[[entries]]
+text = "Tools"
+icon = "applications-system"
+submenu = "workstation-tools"
+
+[[entries]]
+text = "Capture"
+icon = "camera-photo"
+submenu = "workstation-capture"
+
+[[entries]]
+text = "Clipboard"
+icon = "edit-paste"
+actions = { "open" = "walker --provider clipboard" }
+
+[[entries]]
+text = "Symbols"
+icon = "insert-symbol"
+actions = { "open" = "walker --provider symbols" }
+
+[[entries]]
+text = "Windows"
+icon = "window"
+actions = { "open" = "walker --provider windows" }

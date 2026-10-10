@@ -1,0 +1,18 @@
+[Unit]
+Description=Portless local development proxy
+Documentation=https://github.com/vercel-labs/portless
+After=network.target
+
+[Service]
+Type=simple
+Environment=PORTLESS_HTTPS=0
+Environment=PORTLESS_PORT=80
+Environment=PORTLESS_TLD=localhost
+Environment=PORTLESS_SYNC_HOSTS=0
+Environment=PORTLESS_ALLOW_UNPRIVILEGED_BIND=1
+ExecStart=/usr/bin/mise exec -- portless proxy start --foreground --no-tls
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

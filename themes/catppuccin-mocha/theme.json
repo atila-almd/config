@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "id": "catppuccin-mocha",
+  "name": "Catppuccin Mocha",
+  "mode": "dark",
+  "colors": {
+    "accent": "#89b4fa",
+    "selection": "#45475a",
+    "muted": "#6c7086",
+    "background": "#1e1e2e",
+    "background_alt": "#181825",
+    "surface": "#313244",
+    "surface_alt": "#45475a",
+    "foreground": "#cdd6f4",
+    "foreground_muted": "#a6adc8",
+    "red": "#f38ba8",
+    "orange": "#fab387",
+    "yellow": "#f9e2af",
+    "green": "#a6e3a1",
+    "cyan": "#94e2d5",
+    "blue": "#89b4fa",
+    "magenta": "#cba6f7"
+  },
+  "terminal": {
+    "palette": [
+      "#45475a",
+      "#f38ba8",
+      "#a6e3a1",
+      "#f9e2af",
+      "#89b4fa",
+      "#f5c2e7",
+      "#94e2d5",
+      "#bac2de",
+      "#585b70",
+      "#f38ba8",
+      "#a6e3a1",
+      "#f9e2af",
+      "#89b4fa",
+      "#f5c2e7",
+      "#94e2d5",
+      "#a6adc8"
+    ]
+  },
+  "wallpapers": [
+    {
+      "name": "Default",
+      "path": "wallpapers/default.svg"
+    }
+  ],
+  "gtk": {
+    "theme": "Adwaita-dark",
+    "icon_theme": "Papirus-Dark",
+    "cursor_theme": "Adwaita"
+  }
+}

@@ -1,0 +1,55 @@
+name = "workstation-capture"
+name_pretty = "Capture"
+icon = "camera-photo"
+fixed_order = true
+
+# OCR uses tesseract with the declared English and Portuguese language data.
+[[entries]]
+text = "Copy text from region (English + Portuguese)"
+icon = "edit-copy"
+actions = { "copy" = "workstation-media ocr --copy" }
+
+[[entries]]
+text = "Read QR from region and copy"
+icon = "view-barcode-qr"
+actions = { "copy" = "workstation-media qr-read --copy" }
+
+[[entries]]
+text = "Record region (no audio)"
+icon = "media-record"
+actions = { "record" = "workstation-record start" }
+
+[[entries]]
+text = "Record region with audio"
+icon = "audio-input-microphone"
+actions = { "record" = "workstation-record start --audio" }
+
+[[entries]]
+text = "Stop recording"
+icon = "media-playback-stop"
+actions = { "stop" = "workstation-record stop" }
+
+[[entries]]
+text = "Region"
+icon = "select-rectangular"
+actions = { "capture" = "workstation-capture region" }
+
+[[entries]]
+text = "Window"
+icon = "window"
+actions = { "capture" = "workstation-capture window" }
+
+[[entries]]
+text = "Output"
+icon = "video-display"
+actions = { "capture" = "workstation-capture output" }
+
+[[entries]]
+text = "Clipboard"
+icon = "edit-paste"
+actions = { "capture" = "workstation-capture clipboard" }
+
+[[entries]]
+text = "Color picker"
+icon = "color-picker"
+actions = { "capture" = "workstation-capture color" }

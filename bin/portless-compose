@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+program_name="${0##*/}"
+override_name='compose.portless.yaml'
+script_dir="$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" && pwd -P)"
+template="$script_dir/../services/portless/compose.portless.yaml"
+
+usage() {
+  cat <<EOF
+Usage:
+  $program_name init <service> <container-port>
+  $program_name <hostname> [compose-command] [compose-options...]
+
+Examples:
+  $program_name init app 8080
+  $program_name intranet
+  $program_name intranet up --build
+  $program_name intranet down
+
+The init command creates $override_name in the current project. Git ignores
+that filename globally. Running with only a hostname defaults to \`up\`.
+EOF
+}
+
+die() {
+  printf '%s: %s\n' "$program_name" "$*" >&2
+  exit 1
+}
+
+find_compose_file() {
+  local candidate
+  local -a matches=()
+
+  if [[ -n "${PORTLESS_COMPOSE_FILE:-}" ]]; then
+    [[ -f "$PORTLESS_COMPOSE_FILE" ]] ||
+      die "PORTLESS_COMPOSE_FILE does not exist: $PORTLESS_COMPOSE_FILE"
+    readlink -f -- "$PORTLESS_COMPOSE_FILE"
+    return
+  fi
+
+  for candidate in compose.yaml compose.yml docker-compose.yaml docker-compose.yml; do
+    [[ -f "$candidate" ]] && matches+=("$candidate")
+  done
+
+  ((${#matches[@]})) ||
+    die 'no Compose file found in the current directory'
+  ((${#matches[@]} == 1)) ||
+    die "multiple Compose files found (${matches[*]}); set PORTLESS_COMPOSE_FILE"
+
+  readlink -f -- "${matches[0]}"
+}
+
+initialize_override() {
+  local service="${1:-}"
+  local container_port="${2:-}"
+  local temporary
+
+  [[ -n "$service" && -n "$container_port" && $# -eq 2 ]] || {
+    usage >&2
+    exit 2
+  }
+  [[ "$service" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] ||
+    die "invalid Compose service name: $service"
+  [[ "$container_port" =~ ^[0-9]+$ ]] &&
+    ((container_port >= 1 && container_port <= 65535)) ||
+    die "container port must be between 1 and 65535: $container_port"
+  [[ -f "$template" ]] || die "template is unavailable: $template"
+  [[ ! -e "$override_name" && ! -L "$override_name" ]] ||
+    die "$override_name already exists; refusing to overwrite it"
+
+  temporary="$(mktemp "./.${override_name}.XXXXXX")"
+  trap 'rm -f -- "$temporary"' EXIT
+  awk -v service="$service" -v port="$container_port" '
+    { gsub(/__PORTLESS_SERVICE__/, service); gsub(/__PORTLESS_CONTAINER_PORT__/, port); print }
+  ' "$template" > "$temporary"
+  chmod 0644 -- "$temporary"
+  mv -- "$temporary" "$override_name"
+  trap - EXIT
+
+  printf 'Created %s for service %s on container port %s.\n' \
+    "$override_name" "$service" "$container_port"
+  printf 'Start it with: %s <hostname>\n' "$program_name"
+}
+
+if [[ "${1:-}" == '-h' || "${1:-}" == '--help' ]]; then
+  usage
+  exit 0
+fi
+
+if [[ "${1:-}" == 'init' ]]; then
+  shift
+  initialize_override "$@"
+  exit 0
+fi
+
+hostname="${1:-}"
+[[ -n "$hostname" ]] || {
+  usage >&2
+  exit 2
+}
+[[ "$hostname" =~ ^[A-Za-z0-9][A-Za-z0-9-]*$ ]] ||
+  die "invalid Portless hostname: $hostname"
+shift
+
+compose_file="$(find_compose_file)"
+override_file="$(readlink -f -- "$override_name" 2>/dev/null || true)"
+[[ -f "$override_file" ]] ||
+  die "$override_name is missing; run '$program_name init <service> <container-port>' first"
+command -v portless >/dev/null 2>&1 || die 'portless is not installed'
+command -v podman >/dev/null 2>&1 || die 'podman is not installed'
+
+if (($# == 0)); then
+  set -- up
+fi
+
+for argument in "$@"; do
+  if [[ "$argument" == '-d' || "$argument" == '--detach' ]]; then
+    die 'detached mode would remove the Portless route; run Compose in the foreground'
+  fi
+done
+
+exec portless "$hostname" podman compose \
+  -f "$compose_file" \
+  -f "$override_file" \
+  "$@"

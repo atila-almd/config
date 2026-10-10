@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+identity_root="${BLENDOS_WORKSTATION_IDENTITY_ROOT:-/etc/blendos-workstation/identity}"
+runtime_dir="${XDG_RUNTIME_DIR:?greetd did not provide XDG_RUNTIME_DIR}"
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=Hyprland
+# The greeter account has no desktop state. Hyprland and Quickshell both use
+# explicit paths below, so pre-login never reads the owner's home/share.
+export HOME=/var/lib/greetd
+
+# Hyprland chooses a free server socket name (usually wayland-1) instead of
+# honoring a client-style WAYLAND_DISPLAY value. Remember sockets that existed
+# before launch and hand the newly-created one to the Quickshell client.
+declare -A existing_wayland_sockets=()
+for socket_path in "$runtime_dir"/wayland-*; do
+    [[ -S "$socket_path" ]] || continue
+    existing_wayland_sockets["${socket_path##*/}"]=1
+done
+
+config="$identity_root/hyprland.lua"
+if grep -Eiq 'virtualbox|innotek' /sys/class/dmi/id/product_name /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+    config="$identity_root/hyprland-vm.lua"
+    export QT_QUICK_BACKEND=software
+    export LIBGL_ALWAYS_SOFTWARE=true
+    export GALLIUM_DRIVER=llvmpipe
+fi
+
+[[ -x /usr/bin/start-hyprland ]] || { printf 'Hyprland launcher is unavailable.\n' >&2; exit 1; }
+[[ -x /usr/bin/Hyprland ]] || { printf 'Hyprland compositor is unavailable.\n' >&2; exit 1; }
+[[ -x /usr/bin/qs ]] || { printf 'Quickshell is unavailable.\n' >&2; exit 1; }
+[[ -f "$config" ]] || { printf 'Greeter compositor config is unavailable.\n' >&2; exit 1; }
+
+compositor_pid=''
+cleanup() {
+    if [[ -n "$compositor_pid" ]] && kill -0 "$compositor_pid" 2>/dev/null; then
+        kill -TERM "$compositor_pid" 2>/dev/null || true
+    fi
+    if [[ -n "$compositor_pid" ]]; then
+        wait "$compositor_pid" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT
+terminate() { exit 143; }
+trap terminate INT TERM
+
+/usr/bin/start-hyprland --path /usr/bin/Hyprland -- --config "$config" >/dev/null 2>&1 &
+compositor_pid=$!
+socket_name=''
+for ((attempt = 0; attempt < 200; ++attempt)); do
+    for socket_path in "$runtime_dir"/wayland-*; do
+        [[ -S "$socket_path" ]] || continue
+        candidate="${socket_path##*/}"
+        [[ "${existing_wayland_sockets[$candidate]:-}" == 1 ]] && continue
+        socket_name="$candidate"
+        break
+    done
+    [[ -n "$socket_name" ]] && break
+    kill -0 "$compositor_pid" 2>/dev/null || {
+        wait "$compositor_pid" || true
+        exit 1
+    }
+    sleep 0.05
+done
+[[ -n "$socket_name" ]] || {
+    printf 'Greeter compositor did not publish a new Wayland socket in %s.\n' "$runtime_dir" >&2
+    exit 1
+}
+export WAYLAND_DISPLAY="$socket_name"
+
+set +e
+"$identity_root/greeter-ui"
+status=$?
+set -e
+exit "$status"

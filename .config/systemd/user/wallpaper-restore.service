@@ -1,0 +1,16 @@
+[Unit]
+Description=Restore the selected workstation wallpaper
+Requires=awww-daemon.service
+After=blendos-workstation-session.target
+After=awww-daemon.service
+PartOf=blendos-workstation-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/blend_bin/workstation-wallpaper restore
+RemainAfterExit=yes
+Slice=session-graphical.slice
+
+[Install]
+WantedBy=blendos-workstation-session.target

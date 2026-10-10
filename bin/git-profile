@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+state_root="${BLENDOS_WORKSTATION_GIT_STATE_HOME:-${XDG_STATE_HOME:-$HOME/.local/state}/blendos-workstation/git}"
+profiles_dir="$state_root/profiles"
+mappings_file="$state_root/config"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  git-profile add <profile> <name> <email>
+  git-profile map <profile> <directory>
+  git-profile unmap <directory>
+  git-profile delete <profile>
+  git-profile show <directory>
+  git-profile list
+
+Identity values and directory mappings are stored outside the managed
+repository under ~/.local/state/blendos-workstation/git/.
+EOF
+}
+
+fail() {
+  printf 'git-profile: %s\n' "$*" >&2
+  exit 1
+}
+
+validate_profile() {
+  [[ "$1" =~ ^[A-Za-z0-9._-]+$ ]] ||
+    fail "profile names may contain only letters, numbers, dot, underscore, and dash"
+}
+
+profile_file() {
+  validate_profile "$1"
+  printf '%s/%s.gitconfig\n' "$profiles_dir" "$1"
+}
+
+ensure_state() {
+  install -d -m0700 -- "$profiles_dir"
+  if [[ ! -e "$mappings_file" ]]; then
+    install -m0600 -- /dev/null "$mappings_file"
+  fi
+}
+
+canonical_directory() {
+  local directory="$1"
+  [[ -d "$directory" ]] || fail "directory does not exist: $directory"
+  (
+    cd -- "$directory"
+    pwd -P
+  )
+}
+
+mapping_key() {
+  local directory="$1"
+  printf 'includeIf.gitdir:%s/.path\n' "$directory"
+}
+
+command="${1:-}"
+case "$command" in
+  add)
+    (($# == 4)) || { usage >&2; exit 2; }
+    profile="$2"
+    name="$3"
+    email="$4"
+    target="$(profile_file "$profile")"
+    ensure_state
+    git config --file "$target" --replace-all user.name "$name"
+    git config --file "$target" --replace-all user.email "$email"
+    chmod 0600 -- "$target"
+    printf 'Saved Git profile %s. Map it with: git-profile map %s <directory>\n' "$profile" "$profile"
+    ;;
+  map)
+    (($# == 3)) || { usage >&2; exit 2; }
+    profile="$2"
+    target="$(profile_file "$profile")"
+    directory="$(canonical_directory "$3")"
+    [[ -f "$target" ]] || fail "unknown profile: $profile"
+    ensure_state
+    key="$(mapping_key "$directory")"
+    git config --file "$mappings_file" --replace-all "$key" "$target"
+    printf 'Mapped %s and its repositories to Git profile %s.\n' "$directory" "$profile"
+    ;;
+  unmap)
+    (($# == 2)) || { usage >&2; exit 2; }
+    directory="$(canonical_directory "$2")"
+    ensure_state
+    key="$(mapping_key "$directory")"
+    if git config --file "$mappings_file" --unset-all "$key"; then
+      printf 'Removed Git identity mapping for %s.\n' "$directory"
+    else
+      fail "no mapping exists for: $directory"
+    fi
+    ;;
+  delete)
+    (($# == 2)) || { usage >&2; exit 2; }
+    profile="$2"
+    target="$(profile_file "$profile")"
+    [[ -f "$target" ]] || fail "unknown profile: $profile"
+    ensure_state
+    if git config --file "$mappings_file" --get-regexp '^includeIf\..*\.path$' 2>/dev/null |
+      cut -d' ' -f2- | grep -Fxq -- "$target"; then
+      fail "profile is still mapped; unmap its directories first: $profile"
+    fi
+    rm -- "$target"
+    printf 'Deleted Git profile %s.\n' "$profile"
+    ;;
+  show)
+    (($# == 2)) || { usage >&2; exit 2; }
+    directory="$(canonical_directory "$2")"
+    if ! git -C "$directory" config --show-origin --get-regexp '^user\.(name|email)$'; then
+      fail "no Git identity resolves for: $directory"
+    fi
+    ;;
+  list)
+    (($# == 1)) || { usage >&2; exit 2; }
+    ensure_state
+    printf 'Profiles:\n'
+    shopt -s nullglob
+    profiles=("$profiles_dir"/*.gitconfig)
+    if ((${#profiles[@]} == 0)); then
+      printf '  (none)\n'
+    else
+      for target in "${profiles[@]}"; do
+        profile="$(basename -- "$target" .gitconfig)"
+        name="$(git config --file "$target" --get user.name)"
+        email="$(git config --file "$target" --get user.email)"
+        printf '  %s: %s <%s>\n' "$profile" "$name" "$email"
+      done
+    fi
+
+    printf 'Mappings:\n'
+    if ! git config --file "$mappings_file" --get-regexp '^includeIf\..*\.path$'; then
+      printf '  (none)\n'
+    fi
+    ;;
+  -h|--help)
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac

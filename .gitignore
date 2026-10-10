@@ -1,0 +1,33 @@
+# Temporary editor files
+*.swp
+*.tmp
+
+# Windows/macOS metadata
+.DS_Store
+Thumbs.db
+
+# This repository ships the source template hidden in ordinary projects by the
+# global Git ignore.
+!services/portless/compose.portless.yaml
+
+# Local State and personal input; examples remain public.
+/local/*
+!/local/*.example
+.env
+.env.*
+!*.env.example
+!*.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.nmconnection
+/.priority*-access.sh
+/.codex-vm-*
+/validation/
+/generated/
+/artifacts/
+__pycache__/
+*.pkg.tar.*
+# Machine selection, rendered System Definitions, releases, records and secrets
+# belong under XDG_STATE_HOME, never in these managed source directories.

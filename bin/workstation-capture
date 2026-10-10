@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+program_name="${0##*/}"
+fail() { printf '%s: %s\n' "$program_name" "$*" >&2; exit 1; }
+usage() {
+  cat <<'EOF'
+Usage:
+  workstation-capture {region|window|output} [--clipboard-only]
+  workstation-capture screenshot {region|window|output} [--clipboard-only]
+  workstation-capture region-file OUTPUT.png
+  workstation-capture color
+  workstation-capture clipboard
+
+Screenshots are saved in XDG Pictures/Screenshots. Region screenshots may be
+copied without saving. Color picks are copied by hyprpicker.
+EOF
+}
+need_command() { command -v -- "$1" >/dev/null 2>&1 || fail "required command is unavailable: $1"; }
+pictures_directory() {
+  local candidate fallback
+  candidate="${XDG_PICTURES_DIR:-}"
+  if [[ -z "$candidate" ]] && command -v xdg-user-dir >/dev/null 2>&1; then candidate="$(xdg-user-dir PICTURES 2>/dev/null || true)"; fi
+  fallback="${HOME:?HOME must be set to locate screenshots}/Pictures"
+  [[ "$candidate" == /* ]] || candidate="$fallback"
+  [[ "$candidate" == /* && -n "$candidate" ]] || fail 'HOME must be set to locate screenshot directory'
+  printf '%s\n' "$candidate/Screenshots"
+}
+safe_output_directory() {
+  local directory="$1"
+  mkdir -p -- "$directory" 2>/dev/null || fail "unable to create screenshot directory: $directory"
+  printf '%s\n' "$directory"
+}
+capture() {
+  local mode="$1" clipboard_only="${2:-false}" directory filename status
+  need_command hyprshot
+  [[ "$mode" == region || "$mode" == window || "$mode" == output ]] || fail "invalid screenshot mode: $mode"
+  if [[ "$clipboard_only" == true && "$mode" != region ]]; then fail '--clipboard-only is supported for region screenshots only'; fi
+  if [[ "$clipboard_only" == true ]]; then
+    set +e; hyprshot -m "$mode" -z --clipboard-only; status=$?; set -e
+    case "$status" in 0) ;; 130) printf '%s: screenshot cancelled\n' "$program_name" >&2; return 0 ;; *) return "$status" ;; esac
+    return 0
+  fi
+  directory="$(safe_output_directory "$(pictures_directory)")"
+  filename="screenshot-$(date -u +%Y%m%dT%H%M%SZ)-$$.png"
+  set +e; hyprshot -m "$mode" -z -o "$directory" -f "$filename"; status=$?; set -e
+  case "$status" in
+    0) [[ -s "$directory/$filename" ]] || fail "hyprshot reported success without creating $directory/$filename"; printf '%s\n' "$directory/$filename" ;;
+    130) printf '%s: screenshot cancelled\n' "$program_name" >&2; return 0 ;;
+    *) return "$status" ;;
+  esac
+}
+capture_region_file() {
+  local output="$1" geometry status temporary staging
+  need_command grim
+  need_command slurp
+  [[ "$output" == /* ]] || fail 'region output must be an absolute path'
+  [[ ! -e "$output" && ! -L "$output" ]] || fail "refusing to overwrite existing region output: $output"
+  staging="$(mktemp -d "${output%/*}/.workstation-capture.XXXXXX")" ||
+    fail "unable to create private region staging directory: ${output%/*}"
+  temporary="$staging/region.png"
+  geometry="$(slurp)" || {
+    status=$?
+    if [[ "$status" == 130 ]]; then
+      printf '%s: screenshot cancelled\n' "$program_name" >&2
+      return 0
+    fi
+    return "$status"
+  }
+  [[ -n "$geometry" ]] || {
+    printf '%s: screenshot cancelled\n' "$program_name" >&2
+    return 0
+  }
+  if grim -g "$geometry" "$temporary"; then
+    :
+  else
+    status=$?
+    rm -rf -- "$staging"
+    return "$status"
+  fi
+  [[ -s "$temporary" ]] || { rm -rf -- "$staging"; fail "grim reported success without creating $output"; }
+  mv -T -n -- "$temporary" "$output"
+  if [[ -e "$temporary" || -L "$temporary" ]]; then
+    rm -rf -- "$staging"
+    fail "region output appeared while capturing: $output"
+  fi
+  rmdir -- "$staging" 2>/dev/null || fail "unable to remove private region staging directory: $staging"
+  printf '%s\n' "$output"
+}
+pick_color() { need_command hyprpicker; need_command wl-copy; hyprpicker --autocopy; }
+main() {
+  local command mode clipboard_only=false argument
+  (($# > 0)) || { usage >&2; exit 2; }
+  command="$1"; shift
+  case "$command" in
+    color|pick-color) (($# == 0)) || fail 'color takes no arguments'; pick_color; return ;;
+    clipboard) mode=region; clipboard_only=true ;;
+    region-file)
+      (($# == 1)) || { usage >&2; exit 2; }
+      capture_region_file "$1"
+      return
+      ;;
+    screenshot) (($# > 0)) || { usage >&2; exit 2; }; mode="$1"; shift ;;
+    region|window|output) mode="$command" ;;
+    -h|--help) usage; return ;;
+    *) usage >&2; exit 2 ;;
+  esac
+  while (($#)); do
+    argument="$1"; shift
+    case "$argument" in --clipboard-only) clipboard_only=true ;; -h|--help) usage; return ;; *) fail "unknown option: $argument" ;; esac
+  done
+  capture "$mode" "$clipboard_only"
+}
+main "$@"

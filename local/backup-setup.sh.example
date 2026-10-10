@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Copy to an ignored local/backup-setup.sh, edit the paths, then run explicitly.
+# Generate/keep the password outside the checkout. This only configures backup;
+# it does not initialize storage, upload files or enable the timer.
+set -Eeuo pipefail
+workstation-backup configure \
+  /absolute/path/on/backup-storage \
+  /absolute/path/to/private/restic-password \
+  /absolute/path/to/files

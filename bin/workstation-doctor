@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# Explicit read-only checks. No agent launch, repair, or private log collection.
+set -Eeuo pipefail
+errors=0
+usage() {
+  printf 'Usage: workstation-doctor [desktop|development|productivity|storage|firmware|all] [--wait]\n'
+}
+check_command() {
+  if command -v -- "$1" >/dev/null 2>&1; then
+    printf 'available: %s\n' "$1"
+  else
+    printf 'unavailable: %s\n' "$1"
+    errors=$((errors + 1))
+  fi
+}
+check_unit() {
+  local state
+  state="$(systemctl --user show --property=ActiveState --value "$1" 2>/dev/null || true)"
+  printf '%s: %s\n' "$1" "${state:-unavailable}"
+  [[ "$state" == active ]] || errors=$((errors + 1))
+}
+desktop() {
+  local target=blendos-workstation-session.target
+  for command in systemctl hyprctl session-terminal; do check_command "$command"; done
+  if ! command -v systemctl >/dev/null 2>&1; then return; fi
+  if ! systemctl --user is-active --quiet "$target" 2>/dev/null; then
+    printf 'desktop target: required managed target is inactive\n'
+    errors=$((errors + 1))
+    return
+  fi
+  printf 'desktop target: %s\n' "$target"
+  for target in workstation-shell.service workstation-data.service workstation-lock-guard.service hypridle.service dunst.service awww-daemon.service walker.service; do check_unit "$target"; done
+  for target in elephant.service hyprpolkitagent.service wl-clip-persist.service; do check_unit "$target"; done
+}
+development() {
+  local command
+  for command in workstation-project workstation-agent session-terminal mise podman systemctl systemd-run; do check_command "$command"; done
+  if [[ -x /usr/bin/time ]]; then
+    printf 'available: GNU time executable\n'
+  else
+    printf 'unavailable: /usr/bin/time (package: time)\n'
+    errors=$((errors + 1))
+  fi
+  if command -v systemctl >/dev/null 2>&1; then check_unit podman.socket; fi
+  printf 'provider tokens/quota: unavailable; inspect the selected agent provider\n'
+}
+productivity() {
+  local command languages
+  for command in workstation-capture workstation-record workstation-media workstation-remind wf-recorder grim slurp tesseract zbarimg qrencode ffmpeg magick wl-copy notify-send; do check_command "$command"; done
+  if command -v tesseract >/dev/null 2>&1; then
+    languages="$(tesseract --list-langs 2>/dev/null || true)"
+    for language in eng por; do
+      if [[ $'\n'"$languages"$'\n' == *$'\n'"$language"$'\n'* ]]; then
+        printf 'OCR language available: %s\n' "$language"
+      else
+        printf 'OCR language unavailable: %s\n' "$language"
+        errors=$((errors + 1))
+      fi
+    done
+  fi
+}
+storage() {
+  local command
+  for command in lsblk findmnt df; do check_command "$command"; done
+  if command -v lsblk >/dev/null 2>&1; then lsblk -f || errors=$((errors + 1)); fi
+  if command -v findmnt >/dev/null 2>&1; then
+    findmnt -T "$HOME" || errors=$((errors + 1))
+    findmnt -T "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" || errors=$((errors + 1))
+  fi
+  if command -v df >/dev/null 2>&1; then df -h -- / /boot "$HOME" || errors=$((errors + 1)); fi
+}
+firmware() {
+  check_command fwupdmgr
+  command -v fwupdmgr >/dev/null 2>&1 || return 0
+  local operation status
+  for operation in get-devices get-updates; do
+    status=0
+    fwupdmgr "$operation" </dev/null || status=$?
+    # Upstream uses 2 for a successful query with no actions available.
+    if [[ "$status" != 0 && "$status" != 2 ]]; then
+      printf 'firmware query unavailable: %s (status %s)\n' "$operation" "$status"
+      errors=$((errors + 1))
+    fi
+  done
+}
+section="${1:-all}"
+[[ $# -le 2 && ( $# -lt 2 || "$2" == --wait ) ]] || { usage >&2; exit 2; }
+case "$section" in
+  desktop|development|productivity|storage|firmware) "$section" ;;
+  all) desktop; development; productivity; storage; firmware ;;
+  -h|--help) usage; exit 0 ;;
+  *) usage >&2; exit 2 ;;
+esac
+printf 'Checks with unavailable or inactive prerequisites: %s\n' "$errors"
+if [[ "${2:-}" == --wait && -t 0 ]]; then read -r -p 'Press Enter to close. ' _ || true; fi
+((errors == 0))

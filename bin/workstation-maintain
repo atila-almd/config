@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+# Checkpointed, explicitly requested Akshara updates; no automatic reboot.
+set -Eeuo pipefail
+umask 077
+repo_dir="$(dirname -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")")"
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/blendos-workstation/maintenance"
+pending="$state_dir/pending.json"
+usage() {
+  cat <<'EOF'
+Usage: workstation-maintain preflight
+       workstation-maintain update
+       workstation-maintain verify-update
+       workstation-maintain status [--wait]
+       workstation-maintain archive-record
+
+Update requires a configured working backup and creates a pre-update file
+checkpoint before running sudo akshara update. Reboot remains deliberate.
+Verify-update requires another boot, installed checks and a post-update backup.
+EOF
+}
+fail() { printf 'workstation-maintain: %s\n' "$*" >&2; exit 1; }
+need() { command -v -- "$1" >/dev/null 2>&1 || fail "required command unavailable: $1"; }
+require_blendos() {
+  local distribution
+  distribution="$(awk -F= '$1 == "ID" {gsub(/"/, "", $2); print $2}' /etc/os-release)"
+  [[ "$distribution" == blendos ]] || fail 'run this operation in the installed blendOS account'
+  [[ "$(readlink -f -- /system.yaml)" == "$repo_dir/system.yaml" ]] ||
+    fail 'the active /system.yaml does not resolve to this checkout'
+}
+lock_state() {
+  [[ "$state_dir" == /* ]] || fail 'XDG_STATE_HOME must be an absolute path'
+  mkdir -p -- "$state_dir"
+  chmod 0700 -- "$state_dir"
+  exec 9>"$state_dir/lock"
+  flock -n 9 || fail 'another maintenance operation is running'
+}
+preflight() {
+  require_blendos
+  for command in akshara workstation-backup jq flock systemctl timeout; do need "$command"; done
+  [[ ! -e "$pending" && ! -L "$pending" ]] || fail 'an update record is pending; inspect status before another update'
+  printf 'Storage for update staging (no automatic space guarantee):\n'
+  df -h -- / /boot "$HOME"
+  printf 'Existing update service state:\n'
+  systemctl show akshara-system-update.service --property=ActiveState --property=UnitFileState
+  if systemctl is-active --quiet akshara-system-update.service; then
+    fail 'the system update service is already active'
+  fi
+  check_local_package_repository
+  printf 'Checking configured backup repository...\n'
+  workstation-backup check
+}
+check_local_package_repository() {
+  local repository_url repository_port status
+  repository_url="$(awk -F "'" '/repo-url:/ { print $2; exit }' "$repo_dir/system.yaml")"
+  [[ "$repository_url" =~ ^http://127\.0\.0\.1:([0-9]+)$ ]] ||
+    fail 'system.yaml must configure the local package repository on loopback'
+  repository_port="${BASH_REMATCH[1]}"
+  status="$(timeout 3 bash -c '
+    exec 3<>"/dev/tcp/127.0.0.1/$1"
+    printf "GET /workstation-local.db HTTP/1.0\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n" >&3
+    IFS= read -r status_line <&3
+    printf "%s\n" "$status_line"
+  ' bash "$repository_port" 2>/dev/null)" || fail "local package repository is unavailable at $repository_url"
+  [[ "$status" =~ ^HTTP/[0-9.]+[[:space:]]2[0-9][0-9]([[:space:]]|$) ]] ||
+    fail 'local package repository did not serve workstation-local.db'
+}
+write_pending() {
+  local phase="$1" exit_status="$2" boot_id="$3" temporary
+  temporary="$(mktemp "$state_dir/.pending.XXXXXX")"
+  jq -n --arg phase "$phase" --arg boot "$boot_id" --argjson status "$exit_status" \
+    --arg time "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '{phase:$phase,boot_id:$boot,exit_status:$status,recorded_at:$time}' > "$temporary"
+  mv -Tf -- "$temporary" "$pending"
+}
+update() {
+  require_blendos
+  need flock
+  lock_state
+  preflight
+  need sudo
+  local boot_id update_status=0
+  boot_id="$(cat /proc/sys/kernel/random/boot_id)"
+  [[ -n "$boot_id" ]] || fail 'unable to read boot identity'
+  workstation-backup run pre-update
+  write_pending building 0 "$boot_id"
+  sudo -- akshara update || update_status=$?
+  if ((update_status != 0)); then
+    write_pending build-failed "$update_status" "$boot_id"
+    printf 'Akshara failed; the pre-update file checkpoint is retained. Inspect status and the build output.\n' >&2
+    return "$update_status"
+  fi
+  write_pending awaiting-reboot 0 "$boot_id"
+  printf 'System staged. Reboot deliberately, then run workstation-maintain verify-update.\n'
+}
+verify_update() {
+  require_blendos
+  for command in jq flock systemctl workstation-backup workstation-doctor; do need "$command"; done
+  lock_state
+  [[ -f "$pending" && ! -L "$pending" ]] || fail 'there is no pending update'
+  jq -e '.phase == "awaiting-reboot" and (.boot_id | type == "string" and length > 0)' "$pending" >/dev/null ||
+    fail 'the update did not reach the awaiting-reboot phase; inspect status'
+  [[ "$(jq -r .boot_id "$pending")" != "$(cat /proc/sys/kernel/random/boot_id)" ]] ||
+    fail 'the staged system has not been rebooted'
+  bash "$repo_dir/scripts/validate-component-contract.sh" --installed
+  bash "$repo_dir/scripts/validate-user-session.sh" --installed
+  bash "$repo_dir/scripts/validate-desktop-shell.sh" --installed
+  workstation-doctor desktop
+  local failures
+  failures="$(systemctl --failed --no-legend --plain --no-pager)"
+  [[ -z "$failures" ]] || { printf '%s\n' "$failures" >&2; fail 'system units have failed'; }
+  failures="$(systemctl --user --failed --no-legend --plain --no-pager)"
+  [[ -z "$failures" ]] || { printf '%s\n' "$failures" >&2; fail 'user units have failed'; }
+  workstation-backup run post-update
+  mv -T -- "$pending" "$state_dir/last-verified.json"
+  printf 'Installed checks and post-update file checkpoint passed. Interactive acceptance remains separate.\n'
+}
+status() {
+  if [[ -f "$pending" && ! -L "$pending" ]]; then
+    need jq
+    jq . "$pending"
+  else
+    printf 'No update is pending in this helper. Updates run directly through Akshara are not tracked.\n'
+  fi
+}
+archive_record() {
+  need flock
+  lock_state
+  [[ -f "$pending" && ! -L "$pending" ]] || fail 'there is no pending update record'
+  local archive
+  archive="$(mktemp -d "$state_dir/archived-XXXXXXXX")"
+  mv -T -- "$pending" "$archive/pending.json"
+  printf 'Tracking record preserved at %s. This does not undo or change an Akshara build.\n' "$archive"
+}
+action="${1:-}"
+[[ $# == 1 || ( $# == 2 && "$action" == status && "$2" == --wait ) ]] || { usage >&2; exit 2; }
+case "$action" in
+  preflight|update|status) "$action" ;;
+  verify-update) verify_update ;;
+  archive-record) archive_record ;;
+  -h|--help) usage ;;
+  *) usage >&2; exit 2 ;;
+esac
+if [[ "${2:-}" == --wait && -t 0 ]]; then read -r -p 'Press Enter to close. ' _ || true; fi

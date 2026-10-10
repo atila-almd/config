@@ -1,0 +1,336 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+umask 077
+
+program_name="${0##*/}"
+recording_unit='blendos-recording.service'
+session_target='blendos-workstation-session.target'
+
+usage() {
+  cat <<'EOF'
+Usage:
+  workstation-record start [--audio]
+  workstation-record stop
+  workstation-record status
+
+Start records an interactively selected Wayland region to
+XDG Videos/Recordings. Recording is bounded to two hours and stops with
+SIGINT when the named user service is stopped.
+EOF
+}
+
+fail() {
+  printf '%s: %s\n' "$program_name" "$*" >&2
+  exit 1
+}
+
+need_command() {
+  command -v -- "$1" >/dev/null 2>&1 || fail "required command is unavailable: $1"
+}
+
+absolute_directory() {
+  local candidate="$1"
+  [[ "$candidate" == /* ]] || fail "directory must be an absolute path: $candidate"
+  printf '%s\n' "$candidate"
+}
+
+videos_directory() {
+  local candidate fallback
+  fallback="${HOME:?HOME must be set to locate recordings}/Videos"
+  candidate="${XDG_VIDEOS_DIR:-}"
+  if [[ -z "$candidate" ]] && command -v xdg-user-dir >/dev/null 2>&1; then
+    candidate="$(xdg-user-dir VIDEOS 2>/dev/null || true)"
+  fi
+  [[ -n "$candidate" ]] || candidate="$fallback"
+  candidate="$(absolute_directory "$candidate")"
+  printf '%s/Recordings\n' "$candidate"
+}
+
+state_file() {
+  local state_home
+  state_home="${XDG_STATE_HOME:-${HOME:?HOME must be set to locate recording state}/.local/state}"
+  [[ "$state_home" == /* ]] || fail "state directory must be an absolute path: $state_home"
+  printf '%s/blendos-workstation/recording/current\n' "$state_home"
+}
+
+active_session_target() {
+  systemctl --user is-active --quiet "$session_target" >/dev/null 2>&1 ||
+    fail 'no active graphical session target'
+  printf '%s\n' "$session_target"
+}
+
+unit_state() {
+  local state=''
+  state="$(systemctl --user show --property=ActiveState --value "$recording_unit" 2>/dev/null || true)"
+  if [[ -n "$state" ]]; then
+    printf '%s\n' "$state"
+    return 0
+  fi
+  if systemctl --user is-active --quiet "$recording_unit" >/dev/null 2>&1; then
+    printf 'active\n'
+  else
+    printf 'inactive\n'
+  fi
+}
+
+reject_existing_recording() {
+  local state
+  state="$(unit_state)"
+  case "$state" in
+    active|activating|deactivating)
+      fail "a recording service is already $state: $recording_unit"
+      ;;
+  esac
+}
+
+read_metadata() {
+  local metadata="$1"
+  saved_target=''
+  saved_output=''
+  saved_recording_directory=''
+  [[ -f "$metadata" ]] || return 1
+  {
+    IFS= read -r saved_target
+    IFS= read -r saved_output
+    IFS= read -r saved_recording_directory
+  } < "$metadata" || true
+  [[ -n "$saved_target" && -n "$saved_output" ]]
+}
+
+write_metadata() {
+  local metadata="$1" target="$2" output="$3" recording_directory="$4" directory temporary
+  directory="${metadata%/*}"
+  mkdir -p -- "$directory" 2>/dev/null || return 1
+  chmod 700 -- "$directory" 2>/dev/null || return 1
+  temporary="$metadata.tmp.$$"
+  {
+    printf '%s\n' "$target"
+    printf '%s\n' "$output"
+    printf '%s\n' "$recording_directory"
+  } > "$temporary" || return 1
+  chmod 600 -- "$temporary" 2>/dev/null || return 1
+  mv -f -- "$temporary" "$metadata" || return 1
+}
+
+reserve_output() {
+  local directory="$1" recording_directory
+  recording_directory="$(mktemp -d -- "$directory/recording-XXXXXX")" || fail "unable to reserve a recording directory in: $directory"
+  chmod 700 -- "$recording_directory" 2>/dev/null || {
+    rmdir -- "$recording_directory" 2>/dev/null || true
+    fail "unable to protect recording directory: $recording_directory"
+  }
+  reserved_recording_directory="$recording_directory"
+  reserved_output="$recording_directory/recording.mp4"
+}
+
+select_geometry() {
+  local geometry status
+  set +e
+  geometry="$(slurp)"
+  status=$?
+  set -e
+  if ((status != 0)); then
+    printf '%s: region selection cancelled or failed\n' "$program_name" >&2
+    return "$status"
+  fi
+  [[ -n "$geometry" ]] || fail 'region selector returned an empty geometry'
+  printf '%s\n' "$geometry"
+}
+
+start_recording() {
+  local audio=false argument target output directory geometry metadata metadata_directory
+  local recording_directory
+  local -a command_args
+  while (($#)); do
+    argument="$1"
+    shift
+    case "$argument" in
+      --audio) audio=true ;;
+      -h|--help) usage; return 0 ;;
+      *) fail "unknown start option: $argument" ;;
+    esac
+  done
+
+  need_command systemctl
+  need_command systemd-run
+  need_command slurp
+  need_command wf-recorder
+  [[ -n "${WAYLAND_DISPLAY:-}" ]] || fail 'Wayland is unavailable: WAYLAND_DISPLAY is not set'
+  [[ -n "${XDG_RUNTIME_DIR:-}" ]] || fail 'Wayland is unavailable: XDG_RUNTIME_DIR is not set'
+  target="$(active_session_target)"
+  reject_existing_recording
+
+  directory="$(videos_directory)"
+  mkdir -p -- "$directory" 2>/dev/null || fail "unable to create recording directory: $directory"
+  geometry="$(select_geometry)" || return $?
+  metadata="$(state_file)"
+  metadata_directory="${metadata%/*}"
+  mkdir -p -- "$metadata_directory" 2>/dev/null || fail "unable to create recording state directory: $metadata_directory"
+  chmod 700 -- "$metadata_directory" 2>/dev/null || fail "unable to protect recording state directory: $metadata_directory"
+  reserve_output "$directory"
+  recording_directory="$reserved_recording_directory"
+  output="$reserved_output"
+
+  command_args=(
+    --user
+    --unit=blendos-recording
+    --collect
+    --expand-environment=no
+    "--setenv=WAYLAND_DISPLAY=$WAYLAND_DISPLAY"
+    "--setenv=XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
+    --property=Type=exec
+    "--property=PartOf=$target"
+    "--property=After=$target"
+    --property=KillSignal=SIGINT
+    --property=TimeoutStopSec=30
+    --property=RuntimeMaxSec=2h
+    --
+    /usr/bin/wf-recorder
+    -g "$geometry"
+    -f "$output"
+  )
+  [[ "$audio" == true ]] && command_args+=(--audio)
+  if ! systemd-run "${command_args[@]}"; then
+    rm -f -- "$output" 2>/dev/null || true
+    rmdir -- "$recording_directory" 2>/dev/null || true
+    fail 'unable to start the recording service'
+  fi
+  if ! write_metadata "$metadata" "$target" "$output" "$recording_directory"; then
+    systemctl --user stop "$recording_unit" >/dev/null 2>&1 || true
+    rm -f -- "$output" 2>/dev/null || true
+    rmdir -- "$recording_directory" 2>/dev/null || true
+    fail "unable to commit recording state: $metadata"
+  fi
+  printf 'recording started; final output: %s\n' "$output"
+}
+
+stop_recording() {
+  local metadata state
+  need_command systemctl
+  if [[ -n "${1:-}" ]]; then
+    read_metadata "$(state_file)" && [[ "${saved_recording_directory##*/}" == "$1" ]] || return 75
+  fi
+  systemctl --user stop "$recording_unit"
+  metadata="$(state_file)"
+  if read_metadata "$metadata"; then
+    printf 'recording stop requested; final output: %s\n' "$saved_output"
+  else
+    printf 'recording stop requested: %s\n' "$recording_unit"
+  fi
+}
+
+recording_file_valid() {
+  local output="$1"
+  local codec
+  command -v ffprobe >/dev/null 2>&1 || return 1
+  [[ -s "$output" ]] || return 1
+  codec="$(timeout 3 ffprobe -v error -select_streams v:0 -show_entries stream=codec_name \
+    -of default=noprint_wrappers=1:nokey=1 -- "$output" 2>/dev/null)" || return 1
+  [[ -n "$codec" ]]
+}
+
+status_recording() {
+  local metadata state status=0
+  need_command systemctl
+  metadata="$(state_file)"
+  systemctl --user status "$recording_unit" --no-pager || status=$?
+  state="$(unit_state)"
+  printf 'recording service state: %s\n' "$state"
+  if read_metadata "$metadata"; then
+    printf 'recording session target: %s\n' "$saved_target"
+    case "$state" in
+      activating|active)
+        if [[ -s "$saved_output" ]]; then
+          printf 'recording is still running; output is currently non-empty: %s\n' "$saved_output"
+        else
+          printf 'recording is still starting; output is not complete: %s\n' "$saved_output"
+        fi
+        ;;
+      deactivating)
+        printf 'recording is finalizing after SIGINT; output is not complete: %s\n' "$saved_output"
+        ;;
+      *)
+        if recording_file_valid "$saved_output"; then
+          printf 'recording completed with a readable video stream: %s\n' "$saved_output"
+          status=0
+        elif [[ -s "$saved_output" ]]; then
+          printf 'recording output is non-empty but unreadable or incomplete: %s\n' "$saved_output"
+          status=1
+        else
+          printf 'recording output is empty or missing; no completed recording: %s\n' "$saved_output"
+          status=1
+        fi
+        ;;
+    esac
+  else
+    printf 'recording output metadata is unavailable\n'
+  fi
+  return "$status"
+}
+
+public_snapshot() {
+  local state metadata run_id='' can_stop=false
+  need_command jq
+  state="$(timeout 3 systemctl --user show --property=ActiveState --value "$recording_unit" 2>/dev/null)" || return 1
+  metadata="$(state_file)"
+  if [[ -e "$metadata" ]]; then
+    [[ -f "$metadata" && ! -L "$metadata" && -O "$metadata" && "$(stat -c %s -- "$metadata")" -le 16384 ]] || return 1
+    read_metadata "$metadata" || return 1
+    [[ "$saved_target" == "$session_target" && "$saved_recording_directory" == /* && "$saved_output" == "$saved_recording_directory/recording.mp4" ]] || return 1
+    run_id="${saved_recording_directory##*/}"
+    [[ "$run_id" =~ ^recording-[A-Za-z0-9]+$ ]] || return 1
+  fi
+  case "$state" in
+    active) state=recording; [[ -z "$run_id" ]] || can_stop=true ;;
+    activating) state=starting; [[ -z "$run_id" ]] || can_stop=true ;;
+    deactivating) state=stopping ;;
+    inactive|failed|'')
+      if [[ -z "$run_id" ]]; then state=idle
+      elif recording_file_valid "$saved_output"; then state=completed
+      else state=failed; fi ;;
+    *) state=unknown ;;
+  esac
+  jq -cn --arg id "$run_id" --arg state "$state" --argjson stop "$can_stop" '{schema_version:1,data:{run_id:(if $id=="" then null else $id end),state:$state,can_stop:$stop}}'
+}
+
+operation_lock() {
+  local metadata directory lock
+  metadata="$(state_file)"; directory="${metadata%/*}"
+  [[ ! -L "$directory" && ! -L "${directory%/*}" ]] || return 1
+  install -d -m 0700 -- "${directory%/*}" "$directory" || return 1
+  [[ -O "$directory" && -O "${directory%/*}" ]] || return 1
+  lock="$directory/operation.lock"
+  [[ ! -L "$lock" && (! -e "$lock" || (-f "$lock" && -O "$lock")) ]] || return 1
+  exec {operation_lock_fd}>>"$lock" || return 1
+  chmod 0600 -- "$lock" || return 1
+  flock -n "$operation_lock_fd" || return 73
+}
+
+main() {
+  local action="${1:-}"
+  shift || true
+  case "$action" in
+    start) operation_lock; start_recording "$@" ;;
+    stop)
+      [[ $# == 0 || ($# == 2 && "$1" == --expect-run && "$2" =~ ^recording-[A-Za-z0-9]+$) ]] || fail 'invalid stop arguments'
+      operation_lock
+      stop_recording "${2:-}"
+      ;;
+    snapshot) (($# == 0)) || exit 2; public_snapshot ;;
+    status)
+      (($# == 0)) || fail 'status takes no arguments'
+      status_recording
+      ;;
+    -h|--help)
+      (($# == 0)) || fail 'help takes no arguments'
+      usage
+      ;;
+    *)
+      usage >&2
+      exit 2
+      ;;
+  esac
+}
+
+main "$@"

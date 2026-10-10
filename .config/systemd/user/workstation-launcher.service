@@ -1,0 +1,17 @@
+[Unit]
+Description=Quickshell launcher adapter for Elephant
+Documentation=https://github.com/abenz1267/elephant
+Requisite=graphical-session.target
+After=graphical-session.target elephant.service
+After=blendos-workstation-session.target
+PartOf=blendos-workstation-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=simple
+ExecStart=%h/.local/libexec/blendos-workstation/workstation-launcher serve
+Environment=PATH=%h/.local/bin/blend_bin:/usr/local/bin:/usr/bin
+UMask=0077
+Restart=on-failure
+RestartSec=2
+Slice=session-graphical.slice

@@ -1,0 +1,16 @@
+[Unit]
+Description=Elephant launcher provider backend
+Documentation=https://github.com/abenz1267/elephant
+PartOf=blendos-workstation-session.target
+After=blendos-workstation-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/elephant
+Restart=on-failure
+RestartSec=2s
+Slice=session-graphical.slice
+
+[Install]
+WantedBy=blendos-workstation-session.target

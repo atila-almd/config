@@ -1,0 +1,19 @@
+name = "workstation-notifications"
+name_pretty = "Notifications"
+icon = "preferences-desktop-notification"
+fixed_order = true
+
+[[entries]]
+text = "Show history"
+icon = "document-open-recent"
+actions = { "open" = "session-workstation-shell --card notifications" }
+
+[[entries]]
+text = "Pause or resume"
+icon = "preferences-system-time"
+actions = { "toggle" = "dunstctl set-paused toggle" }
+
+[[entries]]
+text = "Clear history"
+icon = "edit-clear"
+actions = { "clear" = "dunstctl history-clear" }

@@ -1,0 +1,13 @@
+[Unit]
+Description=VirtualBox shared clipboard for the Hyprland session
+PartOf=blendos-workstation-session.target
+After=blendos-workstation-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+ConditionVirtualization=oracle
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/VBoxClient --session-type wayland --clipboard --foreground
+Restart=on-failure
+RestartSec=2
+Slice=session-graphical.slice

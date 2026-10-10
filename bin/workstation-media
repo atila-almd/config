@@ -1,0 +1,198 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+program_name="${0##*/}"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+temporary_root=''
+decoded_image=''
+trap 'if [[ -n "$temporary_root" && -d "$temporary_root" && ! -L "$temporary_root" ]]; then rm -rf -- "$temporary_root"; fi' EXIT
+
+fail() { printf '%s: %s\n' "$program_name" "$*" >&2; exit 1; }
+need_command() { command -v -- "$1" >/dev/null 2>&1 || fail "required command is unavailable: $1"; }
+absolute_existing() {
+  local path
+  [[ -n "$1" ]] || fail 'input path is required'
+  path="$(realpath -e -- "$1" 2>/dev/null || true)"
+  [[ -n "$path" && -f "$path" ]] || fail "input is not a regular file: $1"
+  printf '%s\n' "$path"
+}
+absolute_output() {
+  local path
+  [[ -n "$1" ]] || fail 'output path is required'
+  [[ ! -L "$1" ]] || fail "refusing to overwrite output symlink: $1"
+  path="$(realpath -m -- "$1" 2>/dev/null || true)"
+  [[ "$path" == /* ]] || fail "output path cannot be normalized: $1"
+  printf '%s\n' "$path"
+}
+assert_new_output() {
+  [[ ! -e "$1" && ! -L "$1" ]] || fail "refusing to overwrite existing output: $1"
+  [[ -d "${1%/*}" ]] || fail "output directory does not exist: ${1%/*}"
+}
+private_region() {
+  local helper output
+  [[ -z "$temporary_root" ]] || return 0
+  temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/workstation-media.XXXXXX")" || fail 'unable to create private temporary directory'
+  helper="$(command -v workstation-capture || true)"
+  [[ -n "$helper" ]] || helper="$script_dir/workstation-capture"
+  output="$temporary_root/region.png"
+  "$helper" region-file "$output" >/dev/null || return $?
+  if [[ ! -s "$output" ]]; then
+    printf '%s: screenshot cancelled\n' "$program_name" >&2
+    return 0
+  fi
+  decoded_image="$output"
+}
+parse_decode_args() {
+  parsed_image=''
+  parsed_copy=false
+  while (($#)); do
+    case "$1" in
+      --copy) parsed_copy=true ;;
+      --) shift; (($# == 1)) || fail 'expected one image path after --'; parsed_image="$1"; break ;;
+      -*) fail "unknown option: $1" ;;
+      *) [[ -z "$parsed_image" ]] || fail 'only one image path is accepted'; parsed_image="$1" ;;
+    esac
+    shift
+  done
+}
+decode_image() {
+  if [[ -n "$parsed_image" ]]; then
+    decoded_image="$(absolute_existing "$parsed_image")"
+  else
+    private_region
+  fi
+}
+copy_text() {
+  need_command wl-copy
+  printf '%s' "$1" | wl-copy --type text/plain
+}
+decode_ocr() {
+  local image text
+  parse_decode_args "$@"
+  need_command tesseract
+  decode_image
+  image="$decoded_image"
+  [[ -n "$image" ]] || return 0
+  text="$(tesseract "$image" stdout -l eng+por)" || fail 'tesseract failed to recognize the image'
+  [[ -n "${text//[[:space:]]/}" ]] || fail 'tesseract returned no text; clipboard unchanged'
+  printf '%s\n' "$text"
+  if [[ "$parsed_copy" == true ]]; then copy_text "$text"; fi
+  return 0
+}
+decode_qr() {
+  local image text
+  parse_decode_args "$@"
+  need_command zbarimg
+  decode_image
+  image="$decoded_image"
+  [[ -n "$image" ]] || return 0
+  text="$(zbarimg --quiet --raw --nodbus "$image")" || fail 'QR decoding failed or found no code'
+  printf '%s\n' "$text"
+  if [[ "$parsed_copy" == true ]]; then copy_text "$text"; fi
+  return 0
+}
+atomic_tool_output() {
+  local output="$1" temporary="$2" stage_dir="$3"
+  [[ -s "$temporary" ]] || fail "media tool produced no output: $output"
+  if [[ -e "$output" || -L "$output" ]]; then
+    rm -rf -- "$stage_dir"
+    fail "output appeared while creating: $output"
+  fi
+  mv -T -n -- "$temporary" "$output"
+  if [[ -e "$temporary" || -L "$temporary" ]]; then
+    rm -rf -- "$stage_dir"
+    fail "output appeared while creating: $output"
+  fi
+  rmdir -- "$stage_dir" 2>/dev/null || fail "unable to remove private staging directory: $stage_dir"
+  printf '%s\n' "$output"
+}
+qr_create() {
+  local text output extension temporary stage_dir
+  (($# == 2)) || fail 'usage: qr-create TEXT OUTPUT.png (use - for stdin)'
+  text="$1"
+  output="$(absolute_output "$2")"
+  extension="${output##*.}"; extension="${extension,,}"
+  [[ "$extension" == png ]] || fail 'QR output must use the .png extension'
+  assert_new_output "$output"
+  stage_dir="$(mktemp -d "${output%/*}/.workstation-media.XXXXXX")"
+  temporary="$stage_dir/output.png"
+  if [[ "$text" == '-' ]]; then
+    qrencode -o "$temporary" || { rm -rf -- "$stage_dir"; fail 'qrencode failed'; }
+  else
+    qrencode -o "$temporary" -- "$text" || { rm -rf -- "$stage_dir"; fail 'qrencode failed'; }
+  fi
+  atomic_tool_output "$output" "$temporary" "$stage_dir"
+}
+convert_image() {
+  local input output extension temporary converter stage_dir
+  (($# == 2)) || fail 'usage: image INPUT OUTPUT.(png|jpg|jpeg|webp)'
+  input="$(absolute_existing "$1")"
+  output="$(absolute_output "$2")"
+  extension="${output##*.}"; extension="${extension,,}"
+  case "$extension" in png|jpg|jpeg|webp) ;; *) fail 'image output must be PNG, JPEG, or WebP' ;; esac
+  assert_new_output "$output"
+  stage_dir="$(mktemp -d "${output%/*}/.workstation-media.XXXXXX")"
+  temporary="$stage_dir/output.$extension"
+  if command -v magick >/dev/null 2>&1; then converter=magick; else need_command convert; converter=convert; fi
+  "$converter" -- "$input" "$temporary" || { rm -rf -- "$stage_dir"; fail 'ImageMagick conversion failed'; }
+  atomic_tool_output "$output" "$temporary" "$stage_dir"
+}
+transcode_media() {
+  local input output extension temporary stage_dir
+  (($# == 2)) || fail 'usage: transcode INPUT OUTPUT.(mp4|webm|mp3|wav|ogg)'
+  input="$(absolute_existing "$1")"
+  output="$(absolute_output "$2")"
+  extension="${output##*.}"; extension="${extension,,}"
+  case "$extension" in mp4|webm|mp3|wav|ogg) ;; *) fail 'unsupported transcode output format' ;; esac
+  assert_new_output "$output"
+  stage_dir="$(mktemp -d "${output%/*}/.workstation-media.XXXXXX")"
+  temporary="$stage_dir/output.$extension"
+  need_command ffmpeg
+  ffmpeg -n -i "$input" "$temporary" || { rm -rf -- "$stage_dir"; fail 'ffmpeg transcoding failed'; }
+  atomic_tool_output "$output" "$temporary" "$stage_dir"
+}
+share_file() {
+  local input extension uri
+  (($# == 1)) || fail 'usage: share FILE'
+  input="$(absolute_existing "$1")"
+  need_command wl-copy
+  extension="${input##*.}"; extension="${extension,,}"
+  case "$extension" in
+    png) wl-copy --type image/png < "$input" ;;
+    jpg|jpeg) wl-copy --type image/jpeg < "$input" ;;
+    *)
+      need_command jq
+      uri="file://$(jq -nr --arg path "$input" '$path | split("/") | map(@uri) | join("/")')"
+      printf '%s\r\n' "$uri" | wl-copy --type text/uri-list
+      ;;
+  esac
+}
+usage() {
+  cat <<'EOF'
+Usage:
+  workstation-media ocr [IMAGE] [--copy]
+  workstation-media qr-read [IMAGE] [--copy]
+  workstation-media qr-create TEXT OUTPUT.png
+  workstation-media image INPUT OUTPUT.(png|jpg|jpeg|webp)
+  workstation-media transcode INPUT OUTPUT.(mp4|webm|mp3|wav|ogg)
+  workstation-media share FILE
+
+OCR and QR decoding without IMAGE capture a private region with grim/slurp.
+EOF
+}
+main() {
+  local command="${1:-}"
+  shift || true
+  case "$command" in
+    ocr) decode_ocr "$@" ;;
+    qr-read) decode_qr "$@" ;;
+    qr-create) need_command qrencode; qr_create "$@" ;;
+    image) convert_image "$@" ;;
+    transcode) transcode_media "$@" ;;
+    share) share_file "$@" ;;
+    -h|--help) usage ;;
+    *) usage >&2; exit 2 ;;
+  esac
+}
+main "$@"

@@ -1,0 +1,110 @@
+# Native Arch variant: upstream's build.py --drm only packages Debian.
+pkgname=rustdesk-unattended-wayland
+pkgver=1.5.0.dev.e82dd123
+pkgrel=1
+arch=('x86_64')
+pkgdesc='RustDesk with explicitly selected unattended DRM capture and display wake'
+url='https://github.com/rustdesk/rustdesk'
+license=('AGPL-3.0-only')
+depends=('gtk3' 'xdotool' 'libxcb' 'libxfixes' 'alsa-lib' 'libva'
+         'libappindicator-gtk3' 'gst-plugins-base' 'gst-plugin-pipewire'
+         'libdrm' 'libglvnd' 'libcap' 'libseccomp' 'libpulse' 'pam')
+makedepends=('git' 'rustup' 'clang' 'cmake' 'ninja' 'meson' 'nasm'
+             'python' 'python-pip' 'unzip' 'zip' 'curl' 'pkgconf' 'wayland-protocols')
+provides=('rustdesk')
+conflicts=('rustdesk' 'rustdesk-bin' 'rustdesk-git')
+options=('!lto' '!debug')
+_commit=e82dd12350479b848630d1e500c2f6870609a884
+_vcpkg_commit=9e593bb18ea69cc5095e012465dcd675a822ed0d
+source=("rustdesk::git+https://github.com/rustdesk/rustdesk.git#commit=${_commit}")
+sha256sums=('SKIP') # Full git object identity pins this VCS source.
+
+prepare() {
+  cd "$srcdir/rustdesk"
+  export CI=true FLUTTER_SUPPRESS_ANALYTICS=true
+  [[ $(git rev-parse HEAD) == "$_commit" ]] || return 1
+  git submodule update --init --recursive
+  : "${FLUTTER_ROOT:?Set FLUTTER_ROOT to Flutter 3.24.5}"
+  : "${BRIDGE_FLUTTER_ROOT:?Set BRIDGE_FLUTTER_ROOT to Flutter 3.22.3}"
+  : "${VCPKG_ROOT:?Set VCPKG_ROOT to the pinned vcpkg checkout}"
+  [[ $(git -C "$VCPKG_ROOT" rev-parse HEAD) == "$_vcpkg_commit" ]] || return 1
+  [[ $(git -C "$VCPKG_ROOT" rev-parse --is-shallow-repository) == false ]] || {
+    echo 'vcpkg needs full history for the manifest-pinned older port trees.' >&2
+    return 1
+  }
+  # Fresh SDKs print their one-time welcome after the JSON version payload.
+  "$FLUTTER_ROOT/bin/flutter" --disable-analytics >/dev/null
+  "$BRIDGE_FLUTTER_ROOT/bin/flutter" --disable-analytics >/dev/null
+  "$FLUTTER_ROOT/bin/flutter" --version --machine | python -c 'import json,sys; assert json.JSONDecoder().raw_decode(sys.stdin.read().lstrip())[0]["frameworkVersion"] == "3.24.5"'
+  "$BRIDGE_FLUTTER_ROOT/bin/flutter" --version --machine | python -c 'import json,sys; assert json.JSONDecoder().raw_decode(sys.stdin.read().lstrip())[0]["frameworkVersion"] == "3.22.3"'
+  # Do not permit upstream testing overrides in this named package.
+  [[ -z ${DRMTAP_REPO-}${DRMTAP_SHA-}${DRMTAP_PREBUILT_DIR-}${DRMTAP_ALLOW_UNPINNED-} ]] || return 1
+}
+
+build() {
+  cd "$srcdir/rustdesk"
+  export CI=true FLUTTER_SUPPRESS_ANALYTICS=true
+  export VCPKG_ROOT
+  "$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-install-root="$VCPKG_ROOT/installed"
+  # Match upstream bridge.yml's older generator toolchain and Flutter SDK.
+  cargo +1.75.0 install cargo-expand --version 1.0.95 --locked --root "$srcdir/bridge-tools"
+  cargo +1.75.0 install flutter_rust_bridge_codegen --version 1.80.1 --features uuid --locked --root "$srcdir/bridge-tools"
+  cp flutter/pubspec.yaml "$srcdir/pubspec.original"
+  sed -i 's/extended_text: 14.0.0/extended_text: 13.0.0/g' flutter/pubspec.yaml
+  (
+    export PATH="$BRIDGE_FLUTTER_ROOT/bin:$srcdir/bridge-tools/bin:$PATH"
+    export RUSTUP_TOOLCHAIN=1.75.0
+    cd flutter
+    flutter pub get
+    cd ..
+    # libclang's embedded driver does not discover Arch's versioned builtin
+    # header directory automatically. Pass the selected compiler's resources.
+    set -o pipefail
+    flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/macos/Runner/bridge_generated.h --llvm-compiler-opts="-I$(clang -print-resource-dir)/include" 2>&1 | tee "$srcdir/bridge-generation.log"
+    # ffigen can exit successfully after a fatal C-header parsing diagnostic.
+    if grep -q 'fatal error:' "$srcdir/bridge-generation.log"; then
+      echo 'Bridge generation reported a fatal C-header error.' >&2
+      return 1
+    fi
+  )
+  cp "$srcdir/pubspec.original" flutter/pubspec.yaml
+  export PATH="$FLUTTER_ROOT/bin:$PATH"
+  # Match this commit's build-rustdesk-linux-drm workflow, including its
+  # hardware codec and Unix file clipboard flags.
+  # Pinned libwebm relies on an indirect stdint include removed by newer GCC.
+  # Supply the standard header without changing the locked dependency source.
+  CXXFLAGS="${CXXFLAGS-} -include cstdint" cargo build --locked --release --lib --features flutter,drm,drm-wake,hwcodec,unix-file-copy-paste
+  # GCC processes -Wp definitions after ordinary -U/-D flags. Normalize Arch's
+  # spelling so libdrmtap's own fortified-build flags can override it cleanly.
+  CFLAGS="${CFLAGS//-Wp,-D_FORTIFY_SOURCE=/-D_FORTIFY_SOURCE=}" python -c 'import build; build.ffi_bindgen_function_refactor(); build.build_libdrmtap_so()'
+  cd flutter
+  flutter build linux --release
+}
+
+package() {
+  cd "$srcdir/rustdesk"
+  install -d "$pkgdir/usr/share/rustdesk" "$pkgdir/usr/bin" "$pkgdir/usr/lib/rustdesk"
+  cp -a flutter/build/linux/x64/release/bundle/. "$pkgdir/usr/share/rustdesk/"
+  ln -s /usr/share/rustdesk/rustdesk "$pkgdir/usr/bin/rustdesk"
+  # Reuse the pinned upstream ABI/EGL checks and exact library pin.
+  PKGDEST_ROOT="$pkgdir" python - <<'PY'
+import build, os, pathlib, shutil
+root = pathlib.Path(os.environ['PKGDEST_ROOT'])
+so = pathlib.Path(build.build_libdrmtap_so())
+build._assert_so_has_egl(str(so))
+build.assert_so_satisfies_the_runtime_abi_gate(str(so))
+target = root / 'usr/lib/rustdesk' / so.name
+shutil.copy2(so, target)
+(target.parent / 'libdrmtap.so.0').symlink_to(so.name)
+binary = root / 'usr/share/rustdesk/lib/librustdesk.so'
+assert build._carries_drmtap_marker(binary)
+assert build._carries_drmtap_marker(binary, build.DRMTAP_WAKE_MARKER)
+PY
+  install -Dm644 res/rustdesk.service "$pkgdir/usr/lib/systemd/system/rustdesk.service"
+  install -Dm644 res/rustdesk.service "$pkgdir/usr/share/rustdesk/files/systemd/rustdesk.service"
+  install -Dm644 res/rustdesk.desktop "$pkgdir/usr/share/applications/rustdesk.desktop"
+  install -Dm644 res/rustdesk-link.desktop "$pkgdir/usr/share/applications/rustdesk-link.desktop"
+  install -Dm644 res/128x128@2x.png "$pkgdir/usr/share/icons/hicolor/256x256/apps/rustdesk.png"
+  install -Dm644 res/scalable.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/rustdesk.svg"
+  install -Dm644 LICENCE "$pkgdir/usr/share/licenses/$pkgname/LICENCE"
+}

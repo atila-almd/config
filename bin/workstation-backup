@@ -1,0 +1,545 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+umask 077
+
+program_name="${0##*/}"
+state_home="${XDG_STATE_HOME:-${HOME:?HOME must be set}/.local/state}"
+[[ "$state_home" == /* ]] || {
+  printf '%s: state directory must be an absolute path: %s\n' "$program_name" "$state_home" >&2
+  exit 1
+}
+state_root="$state_home/blendos-workstation/backup"
+config_file="$state_root/config.json"
+status_file="$state_root/status.json"
+manifest_file="$state_root/files-from-verbatim"
+lock_file="$state_root/lock"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  workstation-backup configure [--exclude-file FILE] REPOSITORY PASSWORD_FILE SOURCE...
+  workstation-backup init
+  workstation-backup run [LABEL]
+  workstation-backup snapshots
+  workstation-backup check
+  workstation-backup restore SNAPSHOT NEW_DIRECTORY
+  workstation-backup retention-preview
+  workstation-backup schedule on|off
+  workstation-backup status [--wait]
+
+The helper never initializes a repository or runs a backup without an explicit
+command. It never deletes snapshots or prunes repository data.
+EOF
+}
+
+fail() {
+  printf '%s: %s\n' "$program_name" "$*" >&2
+  exit 1
+}
+
+need_command() {
+  command -v -- "$1" >/dev/null 2>&1 || fail "required command is unavailable: $1"
+}
+
+reject_newline() {
+  [[ "$1" != *$'\n'* && "$1" != *$'\r'* ]] || fail 'paths and labels must not contain newline characters'
+}
+
+ensure_state_root() {
+  mkdir -p -- "$state_root" 2>/dev/null || fail "unable to create Local State directory: $state_root"
+  chmod 700 -- "$state_root" 2>/dev/null || fail "unable to protect Local State directory: $state_root"
+}
+
+with_lock() {
+  need_command flock
+  ensure_state_root
+  exec 9>"$lock_file"
+  chmod 600 -- "$lock_file" 2>/dev/null || fail "unable to protect lock file: $lock_file"
+  flock -n 9 || fail 'another backup operation is already running'
+}
+
+is_remote_repository() {
+  case "$1" in
+    b2:*|azure:*|gs:*|rclone:*|rest:*|s3:*|sftp:*|swift:*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+path_is_within() {
+  local child="$1" parent="$2"
+  [[ "$parent" == / ]] && [[ "$child" == /* ]] && return 0
+  [[ "$child" == "$parent" || "$child" == "$parent"/* ]]
+}
+
+real_source() {
+  local source="$1" resolved_source
+  reject_newline "$source"
+  [[ "$source" == /* ]] || fail "source must be an absolute path: $source"
+  [[ -e "$source" || -L "$source" ]] || fail "source does not exist: $source"
+  resolved_source="$(realpath -e -- "$source")" || fail "unable to resolve source: $source"
+  reject_newline "$resolved_source"
+  printf '%s\n' "$resolved_source"
+}
+
+private_password_file() {
+  local password_file="$1" mode owner resolved_password_file
+  need_command stat
+  need_command id
+  need_command realpath
+  reject_newline "$password_file"
+  [[ "$password_file" == /* ]] || fail "password file must be an absolute path: $password_file"
+  [[ -f "$password_file" && ! -L "$password_file" ]] || fail 'password file must be a regular non-symlink file'
+  mode="$(stat -c '%a' -- "$password_file" 2>/dev/null)" || fail "unable to inspect password file: $password_file"
+  owner="$(stat -c '%u' -- "$password_file" 2>/dev/null)" || fail "unable to inspect password file owner: $password_file"
+  [[ "$owner" == "$(id -u)" ]] || fail 'password file must be owned by the current user'
+  [[ "$mode" == *00 ]] || fail 'password file must not be readable by group or others'
+  resolved_password_file="$(realpath -e -- "$password_file")" || fail "unable to resolve password file: $password_file"
+  reject_newline "$resolved_password_file"
+  printf '%s\n' "$resolved_password_file"
+}
+
+repository_value() {
+  local repository="$1" resolved_repository
+  reject_newline "$repository"
+  if is_remote_repository "$repository"; then
+    printf '%s\n' "$repository"
+    return 0
+  fi
+  [[ "$repository" == /* ]] || fail 'local repository must be an absolute path'
+  resolved_repository="$(realpath -m -- "$repository")" || fail "unable to resolve repository: $repository"
+  reject_newline "$resolved_repository"
+  printf '%s\n' "$resolved_repository"
+}
+
+write_json_atomic() {
+  local destination="$1" temporary="$1.tmp.$$"
+  shift
+  jq -n "$@" > "$temporary" || {
+    rm -f -- "$temporary"
+    return 1
+  }
+  chmod 600 -- "$temporary" || {
+    rm -f -- "$temporary"
+    return 1
+  }
+  mv -f -- "$temporary" "$destination"
+}
+
+write_status() {
+  local operation="$1" result="$2" detail="$3" label="${4:-}" now previous='{}'
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  if [[ -f "$status_file" ]]; then
+    previous="$(jq -c '.' -- "$status_file" 2>/dev/null || printf '{}')"
+  fi
+  write_json_atomic "$status_file" \
+    --arg operation "$operation" --arg result "$result" \
+    --arg detail "$detail" --arg op_label "$label" --arg timestamp "$now" \
+    --argjson previous "$previous" \
+    '($previous // {}) as $old |
+     {schema: 1, operation: $operation, result: $result, detail: $detail,
+      "label": $op_label, timestamp: $timestamp,
+      last_successful_backup: (if $operation == "run" and $result == "success"
+        then $timestamp elif $operation == "run" then null
+        else ($old.last_successful_backup // null) end),
+      last_successful_backup_label: (if $operation == "run" and $result == "success"
+        then $op_label elif $operation == "run" then null
+        else ($old.last_successful_backup_label // null) end),
+      last_successful_check: (if $operation == "check" and $result == "success"
+        then $timestamp elif $operation == "check" then null
+        else ($old.last_successful_check // null) end),
+      last_successful_restore: (if $operation == "restore" and $result == "success"
+        then $timestamp elif $operation == "restore" then null
+        else ($old.last_successful_restore // null) end)}' || {
+    printf '%s: unable to write backup status\n' "$program_name" >&2
+    return 1
+  }
+}
+
+require_config() {
+  [[ -f "$config_file" ]] || fail 'backup is unconfigured; run configure first'
+  jq -e '
+    .schema == 1 and
+    (.repository | type == "string" and length > 0) and
+    (.password_file | type == "string" and length > 0) and
+    (.sources | type == "array" and length > 0) and
+    all(.sources[]; type == "string" and length > 0) and
+    (.source_paths | type == "array") and
+    ((.source_paths | length) == (.sources | length)) and
+    all(.source_paths[]; type == "string" and length > 0) and
+    (.exclude_file == null or (.exclude_file | type == "string" and length > 0)) and
+    (.repository_kind == "local" or .repository_kind == "remote")
+  ' -- "$config_file" >/dev/null || fail "invalid backup configuration: $config_file"
+}
+
+load_config() {
+  require_config
+  need_command realpath
+  repository="$(jq -er '.repository' -- "$config_file")"
+  password_file="$(jq -er '.password_file' -- "$config_file")"
+  repository_kind="$(jq -er '.repository_kind' -- "$config_file")"
+  if [[ "$repository_kind" == local ]]; then
+    [[ "$repository" == /* ]] || fail 'configured local repository must be an absolute path'
+    [[ "$(repository_value "$repository")" == "$repository" ]] ||
+      fail 'configured repository changed target; reconfigure its destination explicitly'
+  else
+    is_remote_repository "$repository" || fail 'configured remote repository has an unsupported backend prefix'
+  fi
+  exclude_file="$(jq -r '.exclude_file // ""' -- "$config_file")"
+  mapfile -t sources < <(jq -er '.sources[]' -- "$config_file")
+  mapfile -t source_paths < <(jq -er '.source_paths[]' -- "$config_file")
+  reject_newline "$repository"
+  password_file="$(private_password_file "$password_file")"
+  for source in "${sources[@]}"; do
+    reject_newline "$source"
+    [[ "$source" == /* ]] || fail 'configured sources must be absolute paths'
+  done
+}
+
+validate_config_sources() {
+  local index current source_path
+  (($# == 0)) || fail 'internal source validation arguments are not supported'
+  for index in "${!sources[@]}"; do
+    source_path="${source_paths[$index]}"
+    reject_newline "$source_path"
+    [[ "$source_path" == /* ]] || fail 'configured source paths must be absolute paths'
+    current="$(realpath -e -- "$source_path" 2>/dev/null)" || fail "configured source is unavailable: $source_path"
+    reject_newline "$current"
+    [[ "$current" == "${sources[$index]}" ]] || fail "configured source changed target: $source_path"
+    [[ "$current" != / ]] || fail 'source root / is not allowed for this personal backup'
+  done
+}
+
+validate_repository_overlap() {
+  local source
+  [[ "$repository_kind" == local ]] || return 0
+  for source in "${sources[@]}"; do
+    if path_is_within "$repository" "$source" || path_is_within "$source" "$repository"; then
+      fail 'local repository must not overlap a backed-up source'
+    fi
+  done
+}
+
+require_destination() {
+  if [[ "$repository_kind" == local && ! -d "$repository" ]]; then
+    fail "backup destination is unavailable: $repository"
+  fi
+}
+
+destination_available() {
+  [[ "$repository_kind" != local || -d "$repository" ]]
+}
+
+restic_command() {
+  restic --repo "$repository" --password-file "$password_file" "$@"
+}
+
+write_manifest() {
+  local temporary="$manifest_file.tmp.$$" source
+  : > "$temporary" || fail "unable to create source manifest: $manifest_file"
+  for source in "${sources[@]}"; do
+    reject_newline "$source"
+    printf '%s\n' "$source" >> "$temporary"
+  done
+  chmod 600 -- "$temporary" || fail "unable to protect source manifest: $manifest_file"
+  mv -f -- "$temporary" "$manifest_file" || fail "unable to commit source manifest: $manifest_file"
+}
+
+configure_backup() {
+  local exclude_file_value='' repository_value_value password_value source resolved_source resolved_exclude
+  local repository_kind_value='local' temporary sources_json source_paths_json
+  need_command jq
+  need_command realpath
+  need_command stat
+  (($# >= 3)) || fail 'configure requires REPOSITORY PASSWORD_FILE and at least one SOURCE'
+  if [[ "$1" == --exclude-file ]]; then
+    (($# >= 5)) || fail '--exclude-file requires FILE plus REPOSITORY PASSWORD_FILE and SOURCE'
+    exclude_file_value="$2"
+    shift 2
+  fi
+  (($# >= 3)) || fail 'configure requires REPOSITORY PASSWORD_FILE and at least one SOURCE'
+  repository_value_value="$(repository_value "$1")"
+  password_value="$(private_password_file "$2")"
+  shift 2
+  sources_json='[]'
+  source_paths_json='[]'
+  for source in "$@"; do
+    reject_newline "$source"
+    [[ "$source" == /* ]] || fail "source must be an absolute path: $source"
+    resolved_source="$(real_source "$source")"
+    [[ "$resolved_source" != / ]] || fail 'source root / is not allowed for this personal backup'
+    sources_json="$(jq -c --arg source "$resolved_source" '. + [$source]' <<<"$sources_json")"
+    source_paths_json="$(jq -c --arg source "$source" '. + [$source]' <<<"$source_paths_json")"
+  done
+  if [[ -n "$exclude_file_value" ]]; then
+    resolved_exclude="$(real_source "$exclude_file_value")"
+    [[ -f "$resolved_exclude" ]] || fail 'exclude file must be a regular file'
+    exclude_file_value="$resolved_exclude"
+  else
+    exclude_file_value=''
+  fi
+  if [[ "$repository_value_value" != *:* || "$repository_value_value" == /* ]]; then
+    repository_kind_value='local'
+    mapfile -t resolved_sources < <(jq -er '.[]' <<<"$sources_json")
+    for resolved_source in "${resolved_sources[@]}"; do
+      if path_is_within "$repository_value_value" "$resolved_source" ||
+        path_is_within "$resolved_source" "$repository_value_value"; then
+        fail 'local repository must not overlap a backed-up source'
+      fi
+    done
+  else
+    repository_kind_value='remote'
+  fi
+  if [[ -f "$config_file" ]] && jq -e '.timer_enabled == true' -- "$config_file" >/dev/null 2>&1; then
+    need_command systemctl
+    systemctl --user disable --now blendos-backup.timer ||
+      fail 'cannot reconfigure while the existing backup timer is enabled'
+  fi
+  ensure_state_root
+  temporary="$config_file.tmp.$$"
+  jq -n \
+    --arg repository "$repository_value_value" \
+    --arg password_file "$password_value" \
+    --arg exclude_file "$exclude_file_value" \
+    --arg repository_kind "$repository_kind_value" \
+    --argjson sources "$sources_json" \
+    --argjson source_paths "$source_paths_json" \
+    '{schema: 1, repository: $repository, repository_kind: $repository_kind,
+      password_file: $password_file, sources: $sources, source_paths: $source_paths,
+      exclude_file: (if $exclude_file == "" then null else $exclude_file end),
+      enabled: false, timer_enabled: false}' > "$temporary" || fail 'unable to write backup configuration'
+  chmod 600 -- "$temporary" || fail 'unable to protect backup configuration'
+  mv -f -- "$temporary" "$config_file" || fail 'unable to commit backup configuration'
+  rm -f -- "$status_file"
+  write_status configure success 'backup configuration saved'
+  printf 'backup configured with %s source(s); timer disabled\n' "$#"
+}
+
+init_repository() {
+  begin_operation init
+  if ! (load_config && validate_config_sources && validate_repository_overlap); then
+    write_status init failure 'repository initialization preflight failed' || fail 'unable to write operation status'
+    return 1
+  fi
+  load_config
+  validate_repository_overlap
+  require_destination_for_init
+  if restic_command init; then
+    write_status init success 'repository initialized'
+  else
+    local result=$?
+    write_status init failure "restic init exited $result"
+    return "$result"
+  fi
+}
+
+require_destination_for_init() {
+  if [[ "$repository_kind" == local ]]; then
+    if [[ -e "$repository" || -L "$repository" ]]; then
+      [[ -d "$repository" && ! -L "$repository" ]] || fail 'local repository destination must be a directory'
+      [[ -z "$(find -- "$repository" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]] ||
+        fail 'refusing to initialize a non-empty local repository destination'
+    else
+      mkdir -p -- "$repository" 2>/dev/null || fail "unable to create local repository destination: $repository"
+      chmod 700 -- "$repository" 2>/dev/null || fail "unable to protect local repository destination: $repository"
+    fi
+  fi
+}
+
+begin_operation() {
+  local operation="$1"
+  ensure_state_root
+  write_status "$operation" starting 'operation preflight started' ||
+    fail 'unable to write operation status'
+}
+
+run_preflight() {
+  load_config
+  validate_config_sources
+  validate_repository_overlap
+  [[ -z "$exclude_file" ]] || {
+    reject_newline "$exclude_file"
+    [[ -f "$exclude_file" && ! -L "$exclude_file" ]] || fail 'configured exclude file is unavailable'
+  }
+  destination_available || fail "backup destination is unavailable: $repository"
+}
+
+run_backup() {
+  local label="${1:-manual}" result
+  (($# <= 1)) || fail 'run takes at most one LABEL'
+  reject_newline "$label"
+  begin_operation run
+  if ! (run_preflight); then
+    write_status run failure 'backup preflight failed' "$label" || fail 'unable to write operation status'
+    return 1
+  fi
+  load_config
+  validate_config_sources
+  validate_repository_overlap
+  if [[ "$label" == scheduled ]] && ! jq -e '.enabled == true and .timer_enabled == true' -- "$config_file" >/dev/null; then
+    write_status run failure 'scheduled backup is disabled' "$label" || fail 'unable to write operation status'
+    fail 'scheduled backup is disabled'
+  fi
+  [[ -z "$exclude_file" ]] || [[ -f "$exclude_file" && ! -L "$exclude_file" ]] ||
+    fail 'configured exclude file is unavailable'
+  write_manifest
+  local -a args=(backup --files-from-verbatim "$manifest_file" --tag blendos-workstation --tag "$label")
+  [[ -n "$exclude_file" ]] && args+=(--exclude-file "$exclude_file")
+  if restic_command "${args[@]}"; then
+    write_status run success 'backup completed' "$label"
+    printf 'backup completed (%s)\n' "$label"
+    return 0
+  else
+    result=$?
+    write_status run failure "restic backup exited $result" "$label"
+    printf '%s: backup failed with status %s\n' "$program_name" "$result" >&2
+    return "$result"
+  fi
+}
+
+list_snapshots() {
+  load_config
+  require_destination
+  restic_command snapshots --tag blendos-workstation
+}
+
+check_repository() {
+  load_config
+  require_destination
+  if restic_command check; then
+    write_status check success 'repository check completed'
+  else
+    local result=$?
+    write_status check failure "restic check exited $result"
+    return "$result"
+  fi
+}
+
+restore_snapshot() {
+  local snapshot="${1:-}" destination="${2:-}" resolved_destination parent
+  (($# == 2)) || fail 'restore requires SNAPSHOT and a new NEW_DIRECTORY'
+  reject_newline "$snapshot"
+  reject_newline "$destination"
+  [[ "$destination" == /* ]] || fail 'restore destination must be an absolute path'
+  [[ ! -e "$destination" && ! -L "$destination" ]] || fail 'restore destination must not already exist'
+  load_config
+  require_destination
+  resolved_destination="$(realpath -m -- "$destination")"
+  for parent in "${sources[@]}"; do
+    path_is_within "$resolved_destination" "$parent" && fail 'restore destination must not be inside a backed-up source'
+  done
+  if [[ "$repository_kind" == local ]] && path_is_within "$resolved_destination" "$repository"; then
+    fail 'restore destination must not be inside the backup repository'
+  fi
+  mkdir -- "$resolved_destination" || fail "unable to create restore destination: $resolved_destination"
+  chmod 700 -- "$resolved_destination" || fail "unable to protect restore destination: $resolved_destination"
+  if restic_command restore "$snapshot" --target "$resolved_destination"; then
+    write_status restore success "snapshot restored to $resolved_destination"
+  else
+    local result=$?
+    write_status restore failure "restic restore exited $result"
+    return "$result"
+  fi
+  printf 'snapshot restored to private directory: %s\n' "$resolved_destination"
+}
+
+retention_preview() {
+  load_config
+  require_destination
+  restic_command forget --tag blendos-workstation \
+    --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --dry-run
+}
+
+schedule_backup() {
+  local action="${1:-}" old_enabled old_timer
+  (($# == 1)) || fail 'schedule requires on or off'
+  load_config
+  need_command systemctl
+  case "$action" in
+    on)
+      [[ -f "$status_file" ]] || fail 'schedule on requires a successful manual backup, check, and restore'
+      jq -e '.last_successful_backup != null and
+        .last_successful_backup_label != "scheduled" and
+        .last_successful_check != null and .last_successful_restore != null' -- "$status_file" >/dev/null ||
+        fail 'schedule on requires a successful manual backup, check, and restore'
+      old_enabled="$(jq -r '.enabled // false' -- "$config_file")"
+      old_timer="$(jq -r '.timer_enabled // false' -- "$config_file")"
+      jq '.enabled = true | .timer_enabled = true' -- "$config_file" > "$config_file.tmp.$$"
+      chmod 600 -- "$config_file.tmp.$$"
+      mv -f -- "$config_file.tmp.$$" "$config_file"
+      if ! systemctl --user enable --now blendos-backup.timer; then
+        jq --argjson enabled "$old_enabled" --argjson timer "$old_timer" \
+          '.enabled = $enabled | .timer_enabled = $timer' -- "$config_file" > "$config_file.tmp.$$"
+        chmod 600 -- "$config_file.tmp.$$"
+        mv -f -- "$config_file.tmp.$$" "$config_file"
+        systemctl --user disable --now blendos-backup.timer >/dev/null 2>&1 || true
+        fail 'unable to enable backup timer'
+      fi
+      printf 'backup timer enabled\n'
+      ;;
+    off)
+      jq '.enabled = false | .timer_enabled = false' -- "$config_file" > "$config_file.tmp.$$"
+      chmod 600 -- "$config_file.tmp.$$"
+      mv -f -- "$config_file.tmp.$$" "$config_file"
+      if ! systemctl --user disable --now blendos-backup.timer >/dev/null 2>&1; then
+        fail 'backup configuration disabled, but the user timer could not be disabled'
+      fi
+      printf 'backup timer disabled\n'
+      ;;
+    *) fail 'schedule action must be on or off' ;;
+  esac
+}
+
+status_backup() {
+  local wait=false
+  if [[ "${1:-}" == --wait ]]; then
+    wait=true
+    shift
+  fi
+  (($# == 0)) || fail 'status takes only --wait'
+  if [[ -f "$config_file" ]] && jq -e '.schema == 1' -- "$config_file" >/dev/null 2>&1; then
+    printf 'backup configured: yes\n'
+    printf 'scheduled backups allowed: %s\n' "$(jq -r '.timer_enabled // false' -- "$config_file")"
+  else
+    printf 'backup configured: no\n'
+  fi
+  if [[ -f "$status_file" ]]; then
+    jq -r '"last operation: \(.operation) \(.result) at \(.timestamp)\n\(.detail)"' -- "$status_file"
+  else
+    printf 'last operation: none\n'
+  fi
+  if command -v systemctl >/dev/null 2>&1; then
+    local timer_state
+    timer_state="$(systemctl --user is-enabled blendos-backup.timer 2>/dev/null || true)"
+    printf 'user timer state: %s\n' "${timer_state:-unavailable}"
+  fi
+  if [[ "$wait" == true && -t 0 ]]; then
+    read -r -p 'Press Enter to close.' _ || true
+  fi
+}
+
+main() {
+  local action="${1:-}"
+  shift || true
+  case "$action" in
+    configure|init|run|snapshots|check|restore|retention-preview|schedule)
+      need_command jq
+      with_lock
+      case "$action" in
+        configure) configure_backup "$@" ;;
+        init) (($# == 0)) || fail 'init takes no arguments'; init_repository ;;
+        run) run_backup "$@" ;;
+        snapshots) (($# == 0)) || fail 'snapshots takes no arguments'; list_snapshots ;;
+        check) (($# == 0)) || fail 'check takes no arguments'; check_repository ;;
+        restore) restore_snapshot "$@" ;;
+        retention-preview) (($# == 0)) || fail 'retention-preview takes no arguments'; retention_preview ;;
+        schedule) schedule_backup "$@" ;;
+      esac
+      ;;
+    status) status_backup "$@" ;;
+    -h|--help) (($# == 0)) || fail 'help takes no arguments'; usage ;;
+    *) usage >&2; exit 2 ;;
+  esac
+}
+
+main "$@"

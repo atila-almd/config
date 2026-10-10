@@ -1,0 +1,15 @@
+# Typography provided by the active system profile.
+font-family = JetBrainsMono Nerd Font
+font-size = 11
+
+# The installer links this name to the active Local State release.
+theme = blendos-workstation
+
+# Hyprland owns borders and decoration. Ghostty only provides terminal padding.
+window-decoration = none
+window-padding-x = 10
+window-padding-y = 8
+window-padding-balance = true
+
+# The managed login shell is Zsh, so enable its integration explicitly.
+shell-integration = zsh

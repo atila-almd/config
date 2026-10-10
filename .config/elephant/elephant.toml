@@ -1,0 +1,6 @@
+# Keep Elephant on its upstream defaults. The core and every selected Go
+# provider are declared together in system.yaml and must share one version.
+auto_detect_launch_prefix = true
+overload_local_env = false
+git_on_demand = true
+ignored_providers = []

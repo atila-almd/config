@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# One-shot reminders scoped to the current graphical login.
+set -Eeuo pipefail
+usage() {
+  cat <<'EOF'
+Usage: workstation-remind after DELAY MESSAGE
+       workstation-remind list [--wait]
+       workstation-remind cancel ID
+
+DELAY is 1s through 24h (also accepts minutes: 30m).
+Reminders end with this graphical login and do not survive reboot.
+EOF
+}
+fail() { printf 'workstation-remind: %s\n' "$*" >&2; exit 1; }
+need() { command -v -- "$1" >/dev/null 2>&1 || fail "required command unavailable: $1"; }
+case "${1:-}" in
+  after)
+    (($# == 3)) || { usage >&2; exit 2; }
+    [[ "$2" =~ ^([1-9][0-9]{0,4})(s|m|h)$ ]] || fail 'use a delay such as 30s, 10m or 2h'
+    seconds="${BASH_REMATCH[1]}"
+    case "${BASH_REMATCH[2]}" in m) seconds=$((seconds * 60));; h) seconds=$((seconds * 3600));; esac
+    ((seconds <= 86400)) || fail 'maximum reminder delay is 24h'
+    [[ -n "$3" && ${#3} -le 4096 ]] || fail 'message must contain 1–4096 characters'
+    need systemctl
+    need systemd-run
+    need notify-send
+    reminder_target=blendos-workstation-session.target
+    systemctl --user is-active --quiet "$reminder_target" ||
+      fail 'a managed graphical login is required'
+    reminder_id="$(date +%s)-$$-$RANDOM"
+    notify_command="$(command -v notify-send)"
+    systemd-run --user --quiet --collect --unit="blendos-reminder-$reminder_id" \
+      --expand-environment=no --on-active="${seconds}s" \
+      --timer-property=AccuracySec=1s \
+      --timer-property=RemainAfterElapse=no \
+      --timer-property="PartOf=$reminder_target" \
+      --property="PartOf=$reminder_target" --property=Type=exec \
+      -- "$notify_command" --app-name=blendos-workstation -- Reminder "$3"
+    printf '%s\n' "$reminder_id"
+    ;;
+  list)
+    [[ $# == 1 || ( $# == 2 && "$2" == --wait ) ]] || { usage >&2; exit 2; }
+    need systemctl
+    list_status=0
+    systemctl --user list-timers --all --no-pager 'blendos-reminder-*.timer' || list_status=$?
+    if [[ "${2:-}" == --wait && -t 0 ]]; then
+      read -r -p 'Press Enter to close. ' _ || true
+    fi
+    exit "$list_status"
+    ;;
+  cancel)
+    (($# == 2)) || { usage >&2; exit 2; }
+    [[ "$2" =~ ^[0-9]+-[0-9]+-[0-9]+$ ]] || fail 'invalid reminder ID'
+    need systemctl
+    exec systemctl --user stop "blendos-reminder-$2.timer" "blendos-reminder-$2.service"
+    ;;
+  -h|--help) usage ;;
+  *) usage >&2; exit 2 ;;
+esac

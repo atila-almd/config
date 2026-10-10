@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+if [[ "$(systemd-detect-virt 2>/dev/null || true)" == 'oracle' ]]; then
+  # VirtualBox's accelerated VMSVGA path disconnects Ghostty from Wayland.
+  # Mesa's software renderer provides the OpenGL level Ghostty requires.
+  export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
+fi
+
+if ! ghostty_bin="$(command -v ghostty)"; then
+  printf 'session-terminal: ghostty is not installed or not in PATH\n' >&2
+  exit 127
+fi
+
+exec "$ghostty_bin" "$@"
