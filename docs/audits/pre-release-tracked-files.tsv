@@ -1,0 +1,241 @@
+path	classification	purpose	embedded_local_state	note
+.config/autostart/vboxclient.desktop	Managed Configuration	Deployable configuration / UI source	-	VM-specific managed component: extract to explicit vm profile.
+.config/dunst/dunstrc	Managed Configuration	Deployable configuration / UI source	-	-
+.config/elephant/elephant.toml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/elephant/menus/workstation-capture.toml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/elephant/menus/workstation-notifications.toml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/elephant/menus/workstation-tools.toml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/elephant/menus/workstation.toml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/ghostty/config.ghostty	Managed Configuration	Deployable configuration / UI source	-	-
+.config/git/ignore	Managed Configuration	Deployable configuration / UI source	-	-
+.config/hypr/hypridle.conf	Managed Configuration	Deployable configuration / UI source	-	-
+.config/hypr/hyprland.lua	Managed Configuration	Deployable configuration / UI source	-	-
+.config/mimeapps.list	Managed Configuration	Deployable configuration / UI source	-	-
+.config/mise/config.toml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/WorkstationShared/AuthForm.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/WorkstationShared/Contract.js	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/WorkstationShared/ThemedPane.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/WorkstationShared/qmldir	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation-lock/KeyboardState.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation-lock/UnlockGate.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation-lock/shell.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/adapters/Audio.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/adapters/Controls.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/adapters/Desktop.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/adapters/ElephantLauncher.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/adapters/IslandSources.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/adapters/Media.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/adapters/TasksStore.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/adapters/WorkstationData.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/components/AudioDeviceRow.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/components/IslandButton.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/components/IslandCardHeader.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/components/IslandGlass.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/components/IslandIcon.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/components/IslandPalette.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/components/IslandProgress.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/components/IslandRing.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/components/IslandSlider.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/components/MediaControlRow.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/components/ProjectAgentPanel.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/components/RollingClock.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/island.json	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/models/AudioLabels.js	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/models/IslandConfig.js	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/models/IslandMotion.js	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/shell.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/surfaces/AgentStatus.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/surfaces/Bar.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/surfaces/ControlCenter.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/surfaces/DashboardView.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/surfaces/IslandBar.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/surfaces/IslandCard.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/surfaces/Launcher.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/quickshell/workstation/surfaces/Projects.qml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/systemd/user/awww-daemon.service	Managed Configuration	Deployable configuration / UI source	-	-
+.config/systemd/user/blendos-backup.service	Managed Configuration	Deployable configuration / UI source	-	-
+.config/systemd/user/blendos-backup.timer	Managed Configuration	Deployable configuration / UI source	-	-
+.config/systemd/user/blendos-workstation-session.target	Managed Configuration	Deployable configuration / UI source	-	-
+.config/systemd/user/dunst.service.d/10-blendos-session.conf	Managed Configuration	Deployable configuration / UI source	-	-
+.config/systemd/user/elephant.service	Managed Configuration	Deployable configuration / UI source	-	-
+.config/systemd/user/hypridle.service	Managed Configuration	Deployable configuration / UI source	-	-
+.config/systemd/user/hyprpolkitagent.service.d/10-blendos-session.conf	Managed Configuration	Deployable configuration / UI source	-	-
+.config/systemd/user/portless.service	Managed Configuration	Deployable configuration / UI source	-	-
+.config/systemd/user/vboxclient-clipboard.service	Managed Configuration	Deployable configuration / UI source	-	VM-specific managed component: extract to explicit vm profile.
+.config/systemd/user/vboxclient-vmsvga.service	Managed Configuration	Deployable configuration / UI source	-	VM-specific managed component: extract to explicit vm profile.
+.config/systemd/user/walker.service	Managed Configuration	Deployable configuration / UI source	-	-
+.config/systemd/user/wallpaper-restore.service	Managed Configuration	Deployable configuration / UI source	-	-
+.config/systemd/user/wl-clip-persist.service	Managed Configuration	Deployable configuration / UI source	-	-
+.config/systemd/user/workstation-data.service	Managed Configuration	Deployable configuration / UI source	-	-
+.config/systemd/user/workstation-launcher.service	Managed Configuration	Deployable configuration / UI source	-	-
+.config/systemd/user/workstation-lock-guard.service	Managed Configuration	Deployable configuration / UI source	-	-
+.config/systemd/user/workstation-lock.service	Managed Configuration	Deployable configuration / UI source	-	-
+.config/systemd/user/workstation-shell.service	Managed Configuration	Deployable configuration / UI source	-	-
+.config/uwsm/env	Managed Configuration	Deployable configuration / UI source	-	-
+.config/walker/config.toml	Managed Configuration	Deployable configuration / UI source	-	-
+.config/walker/themes/blendos/style.css	Managed Configuration	Deployable configuration / UI source	-	-
+.config/xdg-terminals.list	Managed Configuration	Deployable configuration / UI source	-	-
+.gitattributes	Managed Configuration	Repository policy	-	-
+.gitconfig	Managed Configuration	Deployable configuration / UI source	-	-
+.gitignore	Managed Configuration	Repository policy	-	-
+.local/share/applications/com.mitchellh.ghostty.desktop	Managed Configuration	Deployable configuration / UI source	-	-
+.local/share/wayland-sessions/workstation.desktop	Managed Configuration	Deployable configuration / UI source	-	-
+.zprofile	Managed Configuration	Deployable configuration / UI source	-	-
+.zshenv	Managed Configuration	Deployable configuration / UI source	-	-
+.zshrc	Managed Configuration	Deployable configuration / UI source	-	-
+AGENTS.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+BACKLOG.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+CONTEXT.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+README.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	Personal Windows/guest paths at lines 74-75. Replace with neutral examples.	-
+STATE.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	Personal paths / receipt locations at lines 47,63,88,114,145,221,231,248,262. Keep generic checkpoint documentation; keep actual receipts outside Git.	-
+bin/git-profile	Managed Configuration	Integration helper source	-	-
+bin/portless-compose	Managed Configuration	Integration helper source	-	-
+bin/session-lock	Managed Configuration	Integration helper source	-	-
+bin/session-terminal	Managed Configuration	Integration helper source	-	-
+bin/session-walker	Managed Configuration	Integration helper source	-	-
+bin/session-workstation-lock	Managed Configuration	Integration helper source	-	-
+bin/session-workstation-shell	Managed Configuration	Integration helper source	-	-
+bin/workstation-agent	Managed Configuration	Integration helper source	-	-
+bin/workstation-appearance-common.sh	Managed Configuration	Integration helper source	-	-
+bin/workstation-backup	Managed Configuration	Integration helper source	-	-
+bin/workstation-capture	Managed Configuration	Integration helper source	-	-
+bin/workstation-controls	Managed Configuration	Integration helper source	-	-
+bin/workstation-data	Managed Configuration	Integration helper source	-	-
+bin/workstation-doctor	Managed Configuration	Integration helper source	-	-
+bin/workstation-keybindings	Managed Configuration	Integration helper source	-	-
+bin/workstation-launcher	Managed Configuration	Integration helper source	-	-
+bin/workstation-maintain	Managed Configuration	Integration helper source	-	-
+bin/workstation-media	Managed Configuration	Integration helper source	-	-
+bin/workstation-project	Managed Configuration	Integration helper source	-	-
+bin/workstation-record	Managed Configuration	Integration helper source	-	-
+bin/workstation-remind	Managed Configuration	Integration helper source	-	-
+bin/workstation-suspend	Managed Configuration	Integration helper source	-	-
+bin/workstation-theme	Managed Configuration	Integration helper source	-	-
+bin/workstation-wallpaper	Managed Configuration	Integration helper source	-	-
+components.tsv	Managed Configuration	Component Contracts	-	-
+docs/login-lock-selection-research.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+docs/plans/005-project-and-agent-panel.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+docs/plans/006-quickshell-desktop-session.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+docs/plans/007-workstation-control-panels.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+docs/plans/008-launcher-and-utility-entry-points.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+docs/plans/009-notifications-and-osd.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+docs/plans/010-desktop-identity-and-login.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+docs/plans/README.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+install.sh	Managed Configuration	Managed deployment source	-	-
+scripts/build-rustdesk-package.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/build-workstation-data.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/build-workstation-launcher.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/build-workstation-lock-guard.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/check-repository.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/check-workstation-shell-live.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/check-workstation-shell-native.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/check-workstation-shell-render.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/check-workstation-shell-views.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/check-workstation-shell.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/copy-source-fixture.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/fixtures/workstation-control-center/tst_controls.qml	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/fixtures/workstation-controls-native/helper.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/fixtures/workstation-controls-native/shell.qml	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/fixtures/workstation-desktop/shell.qml	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/fixtures/workstation-shell/controls-preview.json	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/fixtures/workstation-shell/preview.json	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/fixtures/workstation-shell/tst_auth.qml	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/fixtures/workstation-shell/tst_bar.qml	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/fixtures/workstation-shell/tst_bar_popup.qml	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/fixtures/workstation-shell/tst_notifications.qml	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/fixtures/workstation-shell/tst_panel.qml	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/fixtures/workstation-unlock-gate/shell.qml	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/fixtures/workstation-views/shell.qml	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/patch-portless-unprivileged-bind.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/rustdesk-package-repo.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-component-contract.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-desktop-shell.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-git-profile.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-installer-rerun.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-portless-compose.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-portless-patch.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-rustdesk-package.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-session-terminal.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-shell-containers.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-source-fixture.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-theme-pipeline.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-vm-rendering.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-workstation-agent.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-workstation-backup.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-workstation-capture.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-workstation-control-center.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-workstation-controls.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-workstation-data.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-workstation-doctor.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-workstation-keybindings.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-workstation-maintain.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-workstation-media.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-workstation-project.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-workstation-record.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-workstation-remind.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/test-workstation-shell.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/validate-component-contract.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/validate-desktop-shell.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/validate-maintenance.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/validate-notification-contract.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/validate-rustdesk.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/validate-security-baseline.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/validate-shell-containers.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/validate-user-session.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+scripts/validate-workstation-controls.sh	Managed Configuration	Validation, maintenance or synthetic test fixture	-	-
+services/desktop/API.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+services/desktop/CHECKLIST.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+services/desktop/ISLAND.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+services/desktop/README.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+services/desktop/UPSTREAM.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+services/desktop/data/cmd/workstation-data/main.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/cmd/workstation-launcher/main.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/cmd/workstation-lock-guard/main.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/go.mod	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/go.sum	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/data/controls.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/data/controls_watch_test.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/data/desktop.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/data/desktop_test.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/data/notifications.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/data/notifications_test.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/data/protocol.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/data/protocol_test.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/data/server.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/data/server_test.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/data/socket_linux.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/data/source.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/data/source_test.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/data/systemd.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/data/systemd_test.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/data/watch.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/data/watch_test.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/launcher/server.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/launcher/server_test.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/lockguard/inhibitor_linux.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/lockguard/inhibitor_linux_test.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/lockguard/sleep_linux.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/lockguard/state.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/lockguard/state_test.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/lockguard/wayland.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/desktop/data/internal/lockguard/wayland_test.go	Managed Configuration	Backend source, tests or dependency pins	-	-
+services/development/AGENTS.template.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+services/development/README.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+services/portless/README.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+services/portless/compose.portless.yaml	Managed Configuration	Service packaging or composition template	-	-
+services/productivity/README.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+services/recovery/README.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	-	-
+services/rustdesk/PKGBUILD	Managed Configuration	Service packaging or composition template	-	-
+services/rustdesk/README.md	Managed Configuration	Project documentation / planning (supporting Managed Configuration)	Personal Windows evidence path at line 90. Replace with a neutral Local State location.	-
+services/rustdesk/check-package.py	Managed Configuration	Service packaging or composition template	-	-
+system.yaml	Managed Configuration	System Definition; currently mixes AMD/NVIDIA desktop and VM selections	-	-
+themes/catppuccin-mocha/theme.json	Managed Configuration	Theme source / template; generated releases are outside Git	-	-
+themes/catppuccin-mocha/wallpapers/default.svg	Managed Configuration	Theme source / template; generated releases are outside Git	-	-
+themes/schema.json	Managed Configuration	Theme source / template; generated releases are outside Git	-	-
+themes/templates/dunst-theme.conf.tpl	Managed Configuration	Theme source / template; generated releases are outside Git	-	-
+themes/templates/ghostty-theme.conf.tpl	Managed Configuration	Theme source / template; generated releases are outside Git	-	-
+themes/templates/gtk-3.0-settings.ini.tpl	Managed Configuration	Theme source / template; generated releases are outside Git	-	-
+themes/templates/gtk-4.0-settings.ini.tpl	Managed Configuration	Theme source / template; generated releases are outside Git	-	-
+themes/templates/hyprland-theme.lua.tpl	Managed Configuration	Theme source / template; generated releases are outside Git	-	-
+themes/templates/walker.css.tpl	Managed Configuration	Theme source / template; generated releases are outside Git	-	-
+themes/templates/workstation-shell.json.tpl	Managed Configuration	Theme source / template; generated releases are outside Git	-	-
