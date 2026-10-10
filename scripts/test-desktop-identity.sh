@@ -42,4 +42,13 @@ if grep -q 'Backed up' "$runtime/install-second.log"; then
   printf 'ERROR: unchanged identity/system-only rerun displaced files\n' >&2
   exit 1
 fi
-printf 'Desktop identity source and presentation tests passed.\n'
+# A stale identity default in the locker must be caught before deployment.
+fixture="$runtime/source-fixture"
+bash "$repo_dir/scripts/copy-source-fixture.sh" "$repo_dir" "$fixture"
+sed -i 's|/etc/blendos-workstation/identity|/usr/share/blendos-workstation/identity|g' \
+  "$fixture/.config/quickshell/workstation-lock/shell.qml"
+if bash "$fixture/scripts/validate-desktop-identity.sh" > "$runtime/stale-identity.log" 2>&1; then
+  printf 'ERROR: validator accepted a locker identity path outside published assets\n' >&2; exit 1
+fi
+grep -Fq 'identity bundle still targets immutable /usr/share' "$runtime/stale-identity.log"
+printf 'Desktop identity source, presentation and shared asset-path tests passed.\n'

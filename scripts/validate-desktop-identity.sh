@@ -79,7 +79,8 @@ if grep -Fq 'workstation-uwsm.desktop' "$system_config"; then
 fi
 if grep -R -Fq '/usr/share/blendos-workstation/identity' \
     "$system_config" "$installer" "$components" "$repo_dir/README.md" \
-    "$repo_dir/STATE.md" "$repo_dir/services/desktop" "$identity_dir"; then
+    "$repo_dir/STATE.md" "$repo_dir/services/desktop" "$identity_dir" \
+    "$repo_dir/.config/quickshell/workstation-lock"; then
   fail 'identity bundle still targets immutable /usr/share'
 fi
 

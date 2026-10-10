@@ -13,7 +13,7 @@ ShellRoot {
     Component.onCompleted: Quickshell.watchFiles = false
     readonly property string stateHome: Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state"
     readonly property string identityRoot: Quickshell.env("WORKSTATION_IDENTITY_ROOT")
-        || "/usr/share/blendos-workstation/identity"
+        || "/etc/blendos-workstation/identity"
     // A broken theme must never prevent acquiring the compositor lock.
     property var theme: ({theme_id: "lock-emergency", mode: "dark", colors: {
         background: "#111111", background_alt: "#181818", surface: "#222222", surface_alt: "#333333",
