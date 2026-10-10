@@ -52,6 +52,7 @@ Manual after provisioning:
   - Verify physical outputs/GPU, audio/microphone, networking, lock/sleep and portals.
   - Configure Git identities with git-profile, authenticate Tailscale, pair RustDesk.
   - Sign in to Codex CLI locally; see services/development/README.md.
+  - Pair ZapFast with your phone; see services/messaging/README.md.
   - Configure backup storage/credentials and enable its timer only when desired.
   - Review Capability status: source checks and VM evidence do not pass hardware.
 Local State: $state_home/blendos-workstation/

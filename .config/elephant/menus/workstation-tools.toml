@@ -34,6 +34,11 @@ icon = "web-browser"
 actions = { "open" = "zen-browser" }
 
 [[entries]]
+text = "ZapFast"
+icon = "zapfast"
+actions = { "open" = "zapfast" }
+
+[[entries]]
 text = "System monitor"
 icon = "utilities-system-monitor"
 actions = { "open" = "session-terminal -e btop" }

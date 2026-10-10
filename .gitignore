@@ -36,6 +36,7 @@ __pycache__/
 /.ssh/
 /.gnupg/
 /.codex/
+/.config/zapfast/
 /.local/state/
 /.local/share/keyrings/
 /.cache/

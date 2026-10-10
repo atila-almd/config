@@ -46,6 +46,8 @@ Each document has one audience and one responsibility:
   and runtime/container entry points.
 - [Productivity tools](services/productivity/README.md) owns recording, OCR/QR,
   conversions, clipboard sharing and reminders.
+- [Messaging](services/messaging/README.md) owns ZapFast launch, phone pairing,
+  account data and acceptance checks.
 - [Recovery and maintenance](services/recovery/README.md) owns opt-in file backups,
   update checkpoints, restore procedures, runtime updates and hardware inspection.
 - [Desktop guide](./services/desktop/README.md) owns the Quickshell session,
@@ -195,7 +197,8 @@ provisions account runtimes; `--system-only` only stages the definition. See
 Remaining manual work includes installed validators, display/GPU and Ethernet
 checks, audio/microphone, login/keyring/portals, lock/sleep and visual acceptance;
 Git identities; [Codex CLI sign-in](services/development/README.md#codex-cli);
-Tailscale authentication; RustDesk pairing; and optional backup
+Tailscale authentication; RustDesk pairing;
+[ZapFast phone pairing](services/messaging/README.md); and optional backup
 storage, credentials and timer activation. No backup timer is enabled until the
 owner explicitly configures it.
 
@@ -275,6 +278,7 @@ reject a stale table.
 | control-menu-notifications | Read notifications and control interruptions | dunst → dunstctl | menu:workstation-notifications.toml | Planned | Source implementation present; installed workflow acceptance pending; unverified on hardware; [evidence](services/desktop/CHECKLIST.md) |
 | control-menu-capture | Capture and transform media or share files | hyprshot → workstation-capture | menu:workstation-capture.toml | Planned | Source implementation present; installed workflow acceptance pending; unverified on hardware; [evidence](services/productivity/README.md) |
 | control-menu-browser | Navigate the desktop and open applications | zen-browser-bin → zen-browser | menu:workstation-tools.toml | Planned | Source implementation present; installed workflow acceptance pending; unverified on hardware; [evidence](services/desktop/CHECKLIST.md) |
+| whatsapp-messaging | Send and receive WhatsApp messages | zapfast-bin → zapfast | menu:workstation-tools.toml | Planned | Declared for both profiles; phone pairing, keyring, notifications, tray, portal and appearance acceptance pending; unverified on hardware; [evidence](services/messaging/README.md) |
 | control-menu-terminal | Navigate the desktop and open applications | ghostty → session-terminal | menu:workstation-tools.toml | Planned | Source implementation present; installed workflow acceptance pending; unverified on hardware; **Compatibility Shim**: Client-scoped software rendering only in the explicitly selected vm profile; native rendering on physical hardware; [evidence](services/desktop/CHECKLIST.md) |
 | system-monitor | Inspect and maintain the workstation | btop → btop | menu:workstation-tools.toml | Planned | Source implementation present; installed workflow acceptance pending; unverified on hardware; [evidence](services/desktop/CHECKLIST.md) |
 | terminal-files | Navigate the desktop and open applications | yazi → yazi | menu:workstation-tools.toml | Planned | Source implementation present; installed workflow acceptance pending; unverified on hardware; [evidence](services/desktop/CHECKLIST.md) |
@@ -372,6 +376,7 @@ reject a stale table.
 | control-menu-notifications | Read notifications and control interruptions | dunst → dunstctl | menu:workstation-notifications.toml | Planned | Source implementation present; installed workflow acceptance pending; [evidence](services/desktop/CHECKLIST.md) |
 | control-menu-capture | Capture and transform media or share files | hyprshot → workstation-capture | menu:workstation-capture.toml | Planned | Source implementation present; installed workflow acceptance pending; [evidence](services/productivity/README.md) |
 | control-menu-browser | Navigate the desktop and open applications | zen-browser-bin → zen-browser | menu:workstation-tools.toml | Planned | Source implementation present; installed workflow acceptance pending; [evidence](services/desktop/CHECKLIST.md) |
+| whatsapp-messaging | Send and receive WhatsApp messages | zapfast-bin → zapfast | menu:workstation-tools.toml | Planned | Declared for both profiles; phone pairing, keyring, notifications, tray, portal and appearance acceptance pending; [evidence](services/messaging/README.md) |
 | control-menu-terminal | Navigate the desktop and open applications | ghostty → session-terminal | menu:workstation-tools.toml | Planned | Source implementation present; installed workflow acceptance pending; **Compatibility Shim**: Client-scoped software rendering only in the explicitly selected vm profile; native rendering on physical hardware; [evidence](services/desktop/CHECKLIST.md) |
 | system-monitor | Inspect and maintain the workstation | btop → btop | menu:workstation-tools.toml | Planned | Source implementation present; installed workflow acceptance pending; [evidence](services/desktop/CHECKLIST.md) |
 | terminal-files | Navigate the desktop and open applications | yazi → yazi | menu:workstation-tools.toml | Planned | Source implementation present; installed workflow acceptance pending; [evidence](services/desktop/CHECKLIST.md) |

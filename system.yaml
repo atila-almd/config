@@ -279,6 +279,8 @@ aur-packages:
   - 'helium-browser-bin'
   - 'walker-bin'
   - 'zen-browser-bin'
+  # Owner-selected native WhatsApp client; pairing and message data stay local.
+  - 'zapfast-bin'
 
   # System utility
   - 'zramswap'
