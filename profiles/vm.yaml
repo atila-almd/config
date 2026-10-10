@@ -1,0 +1,11 @@
+# Supported development VM. Selected explicitly by ./bootstrap vm.
+profile: vm
+ready: true
+hardware:
+  form: virtual-machine
+  graphics: VirtualBox VMSVGA
+packages:
+  - 'mesa'
+  - 'virtualbox-guest-utils'
+services:
+  - 'vboxservice'

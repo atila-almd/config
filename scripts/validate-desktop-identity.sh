@@ -126,11 +126,11 @@ if grep -Fq 'runtime_dir/$WAYLAND_DISPLAY' "$identity_dir/greeter-host"; then
   fail 'greeter host waits for a fixed Wayland socket name'
 fi
 grep -Fq 'hyprland-vm.lua' "$identity_dir/greeter-host" || fail 'greeter host lacks the scoped VirtualBox profile'
-vm_line="$(grep -n -Ei 'virtualbox|innotek' "$identity_dir/greeter-host" | head -n1 | cut -d: -f1)"
+vm_line="$(grep -n -Ei 'profile.*== vm' "$identity_dir/greeter-host" | head -n1 | cut -d: -f1)"
 for override in QT_QUICK_BACKEND LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER; do
   override_line="$(grep -n "export $override" "$identity_dir/greeter-host" | head -n1 | cut -d: -f1)"
   [[ -n "$vm_line" && -n "$override_line" && "$override_line" -gt "$vm_line" ]] ||
-    fail "$override is not scoped after the VirtualBox check"
+    fail "$override is not scoped after the explicit vm profile check"
 done
 
 grep -Fq 'command = "/etc/blendos-workstation/identity/greeter-host"' "$system_config" || fail 'greetd config does not select the project greeter host'

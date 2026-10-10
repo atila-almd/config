@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -Eeuo pipefail
+export BLENDOS_WORKSTATION_MACHINE_PROFILE=vm
 
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 runner="${QMLTESTRUNNER:-/usr/lib/qt6/bin/qmltestrunner}"
@@ -25,7 +26,7 @@ BLENDOS_WORKSTATION_TARGET_STATE_HOME="$runtime/install-state" \
 BLENDOS_WORKSTATION_SYSTEM_PATH="$runtime/system.yaml" \
 BLENDOS_WORKSTATION_IDENTITY_ROOT="$test_identity" \
 BLENDOS_WORKSTATION_TEST_NO_SUDO=1 \
-  bash "$repo_dir/install.sh" --system-only > "$runtime/install-first.log"
+  bash "$repo_dir/install.sh" --identity-only > "$runtime/install-first.log"
 for file in GreeterContract.js GreeterView.qml KeyboardState.qml shell.qml greeter-host \
     greeter-ui hyprland.lua hyprland-vm.lua mark-dark.svg mark-light.svg public-theme.json \
     WorkstationShared/AuthForm.qml WorkstationShared/Contract.js WorkstationShared/ThemedPane.qml WorkstationShared/qmldir; do
@@ -36,7 +37,7 @@ BLENDOS_WORKSTATION_TARGET_STATE_HOME="$runtime/install-state" \
 BLENDOS_WORKSTATION_SYSTEM_PATH="$runtime/system.yaml" \
 BLENDOS_WORKSTATION_IDENTITY_ROOT="$test_identity" \
 BLENDOS_WORKSTATION_TEST_NO_SUDO=1 \
-  bash "$repo_dir/install.sh" --system-only > "$runtime/install-second.log"
+  bash "$repo_dir/install.sh" --identity-only > "$runtime/install-second.log"
 if grep -q 'Backed up' "$runtime/install-second.log"; then
   printf 'ERROR: unchanged identity/system-only rerun displaced files\n' >&2
   exit 1

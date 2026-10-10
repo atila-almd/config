@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 umask 077
 repo_dir="$(dirname -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")")"
+machine_state="${XDG_STATE_HOME:-$HOME/.local/state}/blendos-workstation/machine"
 state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/blendos-workstation/maintenance"
 pending="$state_dir/pending.json"
 usage() {
@@ -24,8 +25,12 @@ require_blendos() {
   local distribution
   distribution="$(awk -F= '$1 == "ID" {gsub(/"/, "", $2); print $2}' /etc/os-release)"
   [[ "$distribution" == blendos ]] || fail 'run this operation in the installed blendOS account'
-  [[ "$(readlink -f -- /system.yaml)" == "$repo_dir/system.yaml" ]] ||
-    fail 'the active /system.yaml does not resolve to this checkout'
+  [[ "$(readlink -f -- /system.yaml)" == "$machine_state/system.yaml" ]] ||
+    fail 'the active /system.yaml does not resolve to this account machine state'
+  local profile
+  IFS= read -r profile < "$machine_state/profile"
+  cmp -s -- "$machine_state/system.yaml" <(python3 "$repo_dir/scripts/render-system-definition.py" "$profile") ||
+    fail 'the active definition differs from this checkout/profile; run bootstrap deliberately'
 }
 lock_state() {
   [[ "$state_dir" == /* ]] || fail 'XDG_STATE_HOME must be an absolute path'
@@ -51,7 +56,7 @@ preflight() {
 }
 check_local_package_repository() {
   local repository_url repository_port status
-  repository_url="$(awk -F "'" '/repo-url:/ { print $2; exit }' "$repo_dir/system.yaml")"
+  repository_url="$(python3 -c 'import sys,yaml; print(next(r["repo-url"] for r in yaml.safe_load(open(sys.argv[1]))["package-repos"] if r["name"]=="workstation-local"))' "$machine_state/system.yaml")"
   [[ "$repository_url" =~ ^http://127\.0\.0\.1:([0-9]+)$ ]] ||
     fail 'system.yaml must configure the local package repository on loopback'
   repository_port="${BASH_REMATCH[1]}"

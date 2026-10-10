@@ -82,10 +82,13 @@ feature.
 
 ## Sources of truth
 
-- `system.yaml` declares blendOS packages, system services, user services, and
-  rebuild-time system commands for the active machine profile.
+- `system.yaml` declares common blendOS packages/services and rebuild commands;
+  `profiles/<name>.yaml` adds approved hardware packages/services. `bootstrap`
+  composes the active System Definition into external machine Local State.
 - `components.tsv` maps each desktop capability to its package, executable, and
-  integration point. It is the component contract, not a general package list.
+  integration point. It also owns workflow/profile scope, acceptance status,
+  evidence and adaptation justification; its generated README tables must stay
+  synchronized. It is the component contract, not a general package list.
 - `.config/hypr/hyprland.lua` owns compositor behavior, input, interaction, and
   desktop keybindings.
 - `.config/systemd/user/` owns session-bound and independent user-service
@@ -171,6 +174,9 @@ benchmarking or measurement gate is part of this work.
   The guard independently observes compositor lock acknowledgement. A process
   ID or frontend status string never authorizes sleep. Shared authentication
   presentation is reusable; it does not implement login/session creation.
+- Only an explicitly selected `vm` Machine Profile installs guest units and
+  enables client render overrides; runtime selection uses the public
+  `/etc/blendos-workstation/machine-profile` marker, never DMI detection.
 - The VirtualBox monitor profile uses 1920x1080 at scale 1 because its synthetic
   display reports 640x480 as preferred. Physical displays retain preferred mode
   and automatic scale; keep any future guest override equally profile-scoped.
@@ -229,7 +235,9 @@ Installation paths and the shared Windows/blendOS workflow are documented in
 the guest.
 
 The active Machine Profile is currently an AMD CPU, NVIDIA RTX 4060, wired
-Ethernet desktop with VirtualBox guest support enabled for development. Keep
+Ethernet desktop (Ryzen 7 5800X, RTX 4060, Realtek RTL8125) on a secondary SSD.
+The separate explicit `vm` profile owns VirtualBox guest support. Neither profile
+is selected by hardware detection. Keep
 optional hardware capabilities visibly separated; do not enable them without a
 real target machine or an explicit request.
 

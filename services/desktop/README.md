@@ -50,7 +50,7 @@ publishes the bundle before enabling/restarting greetd. A fresh rebuild can
 therefore be recovered from another TTY until that provisioning step is done;
 there is no fallback greeter.
 
-The host selects `hyprland-vm.lua` only when DMI identifies VirtualBox, and
+The host selects `hyprland-vm.lua` only when the explicit Machine Profile marker is `vm`, and
 applies software rendering only to that pre-login process. Physical displays
 use the preferred-mode config and receive no renderer override. Inspect the
 source contract with:
@@ -198,9 +198,9 @@ the wallpaper owner. Geometry and behavior stay in managed QML. See the root
 [theme guide](../../README.md#themes-and-wallpapers).
 
 `session-workstation-shell` and `session-workstation-lock` select llvmpipe and
-Qt's software backend only in VirtualBox. Ghostty and Walker retain their own
+Qt's software backend only with the explicitly selected `vm` profile. Ghostty and Walker retain their own
 scoped adapters; `workstation-controls audio-mixer` selects GTK's Cairo renderer for
-the mixer in VirtualBox and preserves an explicit `GSK_RENDERER`. Never export
+the mixer with the selected `vm` profile and preserves an explicit `GSK_RENDERER`. Never export
 these overrides session-wide or apply them to
 physical NVIDIA hardware. VM 1920×1080 scale 1 does not replace physical
 preferred-mode/automatic-scale policy.

@@ -48,7 +48,7 @@ workstation-project open api editor
 
 Every terminal window is launched through `session-terminal`. It passes
 Ghostty `--working-directory=... -e ...`, retaining the workstation's
-VirtualBox rendering fallback. Ghostty documents the
+explicit `vm` Machine Profile rendering fallback. Ghostty documents the
 [`working-directory` option and `-e` command execution](https://ghostty.org/docs/config/reference#working-directory)
 in its upstream option reference. The default terminal uses `$SHELL`; the
 editor mode requires `nvim`.

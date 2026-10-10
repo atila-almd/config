@@ -17,10 +17,16 @@ user_unit_dir="$repo_dir/.config/systemd/user"
 session_target="$user_unit_dir/blendos-workstation-session.target"
 session_target_wants="$(sed -n 's/^Wants=//p' "$session_target")"
 check_installed=false
+installed_profile=''
 errors=0
 
 if [[ "${1:-}" == '--installed' ]]; then
   check_installed=true
+  installed_profile="$(cat "${BLENDOS_WORKSTATION_PROFILE_FILE:-/etc/blendos-workstation/machine-profile}" 2>/dev/null || true)"
+  [[ "$installed_profile" =~ ^[a-z][a-z0-9-]*$ ]] || {
+    printf 'Installed Machine Profile is missing; run bootstrap first.\n' >&2
+    exit 1
+  }
 elif (($#)); then
   printf 'Usage: bash scripts/validate-component-contract.sh [--installed]\n' >&2
   exit 2
@@ -38,7 +44,7 @@ package_declared() {
     in_packages && /^[^[:space:]#]/ { in_packages = 0 }
     in_packages && $0 == expected { found = 1 }
     END { exit(found ? 0 : 1) }
-  ' "$system_config"
+  ' "$system_config" "${profile_definition:-$system_config}"
 }
 
 system_service_declared() {
@@ -65,10 +71,10 @@ declare -A hypr_binding_commands=()
 declare -A hypr_variables=()
 declare -A desktop_defaults=()
 
-while IFS=$'\t' read -r capability package executable integration extra; do
+while IFS=$'\t' read -r capability package executable integration workflows profiles vm_status physical_status notes adaptation justification evidence extra; do
   [[ -z "$capability" || "$capability" == \#* ]] && continue
 
-  if [[ -n "${extra:-}" || -z "$package" || -z "$executable" || -z "$integration" ]]; then
+  if [[ -n "${extra:-}" || -z "$package" || -z "$executable" || -z "$integration" || -z "$workflows" || -z "$evidence" ]]; then
     fail "malformed component row for '$capability'"
     continue
   fi
@@ -77,6 +83,16 @@ while IFS=$'\t' read -r capability package executable integration extra; do
     fail "duplicate capability '$capability'"
   fi
   capabilities[$capability]=1
+
+  [[ "$check_installed" == false || "$profiles" == all || "$profiles" == "$installed_profile" ]] || continue
+  profile_definition="$system_config"
+  capability_unit_dir="$user_unit_dir"
+  capability_wants="$session_target_wants"
+  if [[ "$profiles" != all ]]; then
+    profile_definition="$repo_dir/profiles/$profiles.yaml"
+    capability_unit_dir="$repo_dir/profiles/$profiles/user"
+    capability_wants+=" $(sed -n 's/^Wants=//p' "$capability_unit_dir/20-machine-profile.conf" 2>/dev/null || true)"
+  fi
 
   if ! package_declared "$package"; then
     fail "$capability requires undeclared package '$package'"
@@ -170,10 +186,10 @@ while IFS=$'\t' read -r capability package executable integration extra; do
       ;;
     systemd-user:*)
       unit="${integration#systemd-user:}"
-      if [[ ! -f "$user_unit_dir/$unit" && ! -d "$user_unit_dir/$unit.d" ]]; then
+      if [[ ! -f "$capability_unit_dir/$unit" && ! -d "$capability_unit_dir/$unit.d" ]]; then
         fail "$capability expects a managed unit or drop-in for '$unit'"
       fi
-      if [[ " $session_target_wants " != *" $unit "* ]]; then
+      if [[ " $capability_wants " != *" $unit "* ]]; then
         fail "$capability expects '$unit' in blendos-workstation-session.target"
       fi
       if [[ -f "$repo_dir/bin/$executable" ]] && ! grep -Fq -- "$executable" "$installer"; then

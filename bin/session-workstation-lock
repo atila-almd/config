@@ -4,7 +4,8 @@ set -Eeuo pipefail
 command -v qs >/dev/null || { printf 'Quickshell is not installed.\n' >&2; exit 127; }
 export QT_QUICK_CONTROLS_STYLE=Basic
 export QML_IMPORT_PATH="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell${QML_IMPORT_PATH:+:$QML_IMPORT_PATH}"
-if [[ "$(systemd-detect-virt 2>/dev/null || true)" == oracle ]]; then
+profile="$(cat "${BLENDOS_WORKSTATION_PROFILE_FILE:-/etc/blendos-workstation/machine-profile}" 2>/dev/null || true)"
+if [[ "$profile" == vm ]]; then
   export LIBGL_ALWAYS_SOFTWARE=true GALLIUM_DRIVER=llvmpipe QT_QUICK_BACKEND=software
 fi
 exec qs -c workstation-lock

@@ -21,7 +21,11 @@ cat > "$test_dir/bin/systemd-detect-virt" <<'FAKE'
 printf '%s\n' "${CONTROL_TEST_VIRT:-none}"
 FAKE
 chmod +x "$test_dir/bin/"*
-run() { bash "$helper" "$@"; }
+run() {
+  export BLENDOS_WORKSTATION_PROFILE_FILE="$test_dir/profile"
+  if [[ "${CONTROL_TEST_VIRT:-none}" == oracle ]]; then printf "vm\n" > "$test_dir/profile"; else printf "physical\n" > "$test_dir/profile"; fi
+  bash "$helper" "$@"
+}
 request() { jq -cn --arg action "$1" --argjson args "${2:-\{\}}" '{schema_version:1,request_id:"test-1",action:$action,args:$args}'; }
 dispatch() { run dispatch "$(request "$@")"; }
 expect() { local filter="$1"; shift; "$@" | jq -e "$filter" >/dev/null; }

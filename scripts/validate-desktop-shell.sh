@@ -179,7 +179,7 @@ validate_repository() {
     fail 'UWSM does not export the managed helper PATH'
   grep -Fq 'local monitor_mode = "preferred"' "$hypr_config" || fail 'Hyprland has no physical-display mode default'
   grep -Fq 'local monitor_scale = "auto"' "$hypr_config" || fail 'Hyprland has no physical-display scale default'
-  grep -Fq 'dmi_product == "VirtualBox"' "$hypr_config" || fail 'Hyprland has no VirtualBox display override'
+  grep -Fq 'profile == "vm"' "$hypr_config" || fail 'Hyprland has no VirtualBox display override'
   grep -Fq 'monitor_mode = "1920x1080@60"' "$hypr_config" || fail 'Hyprland has no VirtualBox 1080p mode'
   grep -Fq 'mode = monitor_mode' "$hypr_config" || fail 'Hyprland monitor does not use the selected mode'
   grep -Fq 'scale = monitor_scale' "$hypr_config" || fail 'Hyprland monitor does not use the selected scale'

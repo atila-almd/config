@@ -18,13 +18,15 @@ printf '%s\n' \
 
 chmod +x "$test_dir/systemd-detect-virt" "$test_dir/ghostty"
 
+printf "vm\n" > "$test_dir/vm-profile"
+printf "physical\n" > "$test_dir/physical-profile"
 virtualbox_output="$({
-  PATH="$test_dir:$PATH" TEST_VIRT=oracle env -u LIBGL_ALWAYS_SOFTWARE \
+  PATH="$test_dir:$PATH" BLENDOS_WORKSTATION_PROFILE_FILE="$test_dir/vm-profile" TEST_VIRT=oracle env -u LIBGL_ALWAYS_SOFTWARE \
     bash "$repo_dir/bin/session-terminal" --virtualbox
 })"
 
 bare_metal_output="$({
-  PATH="$test_dir:$PATH" TEST_VIRT=none env -u LIBGL_ALWAYS_SOFTWARE \
+  PATH="$test_dir:$PATH" BLENDOS_WORKSTATION_PROFILE_FILE="$test_dir/physical-profile" TEST_VIRT=none env -u LIBGL_ALWAYS_SOFTWARE \
     bash "$repo_dir/bin/session-terminal" --bare-metal
 })"
 

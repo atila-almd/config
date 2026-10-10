@@ -1,0 +1,22 @@
+# Owner-selected existing desktop, for a fresh blendOS install on the secondary SSD.
+# Hardware model names only; no serials, hostnames, account names or network addresses.
+profile: physical
+ready: true
+hardware:
+  form: desktop
+  cpu: AMD Ryzen 7 5800X
+  graphics: NVIDIA GeForce RTX 4060
+  motherboard: ASUS TUF GAMING B550M-PLUS
+  ethernet: Realtek RTL8125 (PCI 10ec:8125)
+  wifi: not part of the supported profile (no adapter detected)
+  bluetooth: not part of the supported profile (no radio detected)
+  firmware: common linux-firmware plus AMD microcode
+  secure-boot: requires manual firmware check; no enrollment/signing is automated
+packages:
+  - 'amd-ucode'
+  - 'mesa'
+  - 'egl-wayland'
+  # Arch's current DKMS package name for supported RTX hardware.
+  - 'nvidia-open-dkms'
+  - 'nvidia-utils'
+services: []

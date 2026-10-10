@@ -40,6 +40,7 @@ chmod u+x -- "$fake_bin"/*
 
 run_lock() (
   export TEST_VIRT="$1"
+  export BLENDOS_WORKSTATION_PROFILE_FILE="$test_dir/$1-profile"
   export HOME="$test_dir/home"
   export BLENDOS_WORKSTATION_THEME_STATE_HOME="$state_home"
   export PATH="$fake_bin:/usr/bin:/bin"
@@ -49,10 +50,13 @@ run_lock() (
 
 run_walker() (
   export TEST_VIRT="$1"
+  export BLENDOS_WORKSTATION_PROFILE_FILE="$test_dir/$1-profile"
   export PATH="$fake_bin:/usr/bin:/bin"
   env -u GSK_RENDERER bash "$repo_dir/bin/session-walker" --gapplication-service
 )
 
+printf "vm\n" > "$test_dir/oracle-profile"
+printf "physical\n" > "$test_dir/none-profile"
 virtualbox_lock="$(run_lock oracle)"
 bare_metal_lock="$(run_lock none)"
 [[ "$virtualbox_lock" == "software=true driver=llvmpipe args=-c workstation-lock" ]] || {

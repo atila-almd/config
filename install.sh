@@ -5,31 +5,50 @@ set -Eeuo pipefail
 install_system=true
 install_home=true
 provision_account=true
+identity_only=false
+machine_profile=''
+mode_count=0
 
 usage() {
   cat <<'EOF'
-Usage: bash install.sh [--home-only | --system-only | --config-only]
+Usage: bash install.sh [--profile NAME] [--home-only | --system-only | --config-only | --identity-only]
 
 Installs the managed home configuration using symlinks and, by default,
-links /system.yaml through ~/system.yaml to this repository.
+links /system.yaml through ~/system.yaml to the rendered Local State definition.
 
 Options:
   --home-only  Install home configuration without changing /system.yaml.
   --system-only  Link the system definition before rebuilding missing packages.
   --config-only  Deploy home files/units only; skip runtime/account/system setup.
+  --identity-only  Publish the public greeter bundle only (requires installed jq).
+  --profile NAME  Explicit Machine Profile; otherwise use prior Local State.
   -h, --help   Show this help.
 EOF
 }
 
 while (($#)); do
   case "$1" in
+    --profile)
+      [[ $# -ge 2 ]] || { printf 'Missing profile name.\n' >&2; exit 2; }
+      machine_profile="$2"
+      shift
+      ;;
+    --identity-only)
+      mode_count=$((mode_count + 1))
+      identity_only=true
+      install_system=false
+      install_home=false
+      ;;
     --home-only)
+      mode_count=$((mode_count + 1))
       install_system=false
       ;;
     --system-only)
+      mode_count=$((mode_count + 1))
       install_home=false
       ;;
     --config-only)
+      mode_count=$((mode_count + 1))
       install_system=false
       provision_account=false
       ;;
@@ -46,7 +65,11 @@ while (($#)); do
   shift
 done
 
-if [[ "$install_system" == false && "$install_home" == false ]]; then
+if ((mode_count > 1)); then
+  printf 'Choose exactly one installation mode.\n' >&2; exit 2
+fi
+
+if [[ "$install_system" == false && "$install_home" == false && "$identity_only" == false ]]; then
   printf 'System-only cannot be combined with home-only or config-only.\n' >&2
   exit 2
 fi
@@ -54,6 +77,30 @@ fi
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 target_home="${BLENDOS_WORKSTATION_TARGET_HOME:-$HOME}"
 target_state_home="${BLENDOS_WORKSTATION_TARGET_STATE_HOME:-${XDG_STATE_HOME:-$target_home/.local/state}}"
+[[ "$target_state_home" == /* ]] || { printf 'Local State path must be absolute.\n' >&2; exit 2; }
+target_state_home="$(realpath -m -- "$target_state_home")"
+[[ "$target_state_home" == /* && "$target_state_home" != "$repo_dir" && "$target_state_home" != "$repo_dir"/* ]] || {
+  printf 'Local State must be absolute and outside the checkout.\n' >&2; exit 2
+}
+machine_state="$target_state_home/blendos-workstation/machine"
+machine_profile="${machine_profile:-${BLENDOS_WORKSTATION_MACHINE_PROFILE:-}}"
+if [[ -z "$machine_profile" && -f "$machine_state/profile" ]]; then
+  IFS= read -r machine_profile < "$machine_state/profile"
+fi
+[[ "$machine_profile" =~ ^[a-z][a-z0-9-]*$ ]] || {
+  printf 'Select a Machine Profile explicitly: ./bootstrap vm or ./bootstrap physical.\n' >&2
+  exit 2
+}
+# Home-only deployment cannot switch the system/runtime hardware selection.
+if [[ "$install_system" == false && "$identity_only" == false && -f "$machine_state/profile" ]]; then
+  previous_profile="$(cat "$machine_state/profile")"
+  [[ "$previous_profile" == "$machine_profile" ]] || {
+    printf 'Switch Machine Profiles through bootstrap and rebuild first.\n' >&2; exit 2
+  }
+fi
+# Validate the approved profile before any home/system mutation.
+python3 "$repo_dir/scripts/render-system-definition.py" "$machine_profile" >/dev/null
+system_definition="${BLENDOS_WORKSTATION_SYSTEM_DEFINITION:-$machine_state/system.yaml}"
 backup_stamp="$(date -u +%Y%m%dT%H%M%S.%NZ)-$$"
 backup_root="$target_state_home/blendos-workstation/backups/$backup_stamp"
 theme_state_root="$target_state_home/blendos-workstation/theme"
@@ -157,6 +204,21 @@ install_identity_assets() {
   rm -rf -- "$identity_stage"
   printf 'Published public Workstation identity assets: %s\n' "$identity_root"
 }
+
+publish_machine_profile() {
+  local identity_root="${BLENDOS_WORKSTATION_IDENTITY_ROOT:-/etc/blendos-workstation/identity}"
+  local temporary
+  temporary="$(mktemp)"
+  printf '%s\n' "$machine_profile" > "$temporary"
+  run_privileged install -Dm644 -- "$temporary" "${identity_root%/*}/machine-profile"
+  rm -f -- "$temporary"
+}
+
+if [[ "$identity_only" == true ]]; then
+  install_identity_assets
+  publish_machine_profile
+  exit 0
+fi
 
 ensure_backup_root() {
   if [[ "$backup_created" == false ]]; then
@@ -278,6 +340,9 @@ link_runtime_path() {
 }
 
 if [[ "$install_home" == true ]]; then
+install -d -m0700 -- "$machine_state"
+printf '%s\n' "$machine_profile" > "$machine_state/profile"
+chmod 0600 -- "$machine_state/profile"
 data_build_dir="$(mktemp -d)"
 trap 'rm -rf -- "$data_build_dir"' EXIT
 for binary in workstation-data workstation-lock-guard workstation-launcher; do
@@ -338,7 +403,6 @@ for relative in "${managed_home_paths[@]}"; do
 done
 
 managed_config_files=(
-  '.config/autostart/vboxclient.desktop'
   '.config/uwsm/env'
   '.config/ghostty/config.ghostty'
   '.config/hypr/hyprland.lua'
@@ -356,6 +420,13 @@ managed_config_files=(
 for relative in "${managed_config_files[@]}"; do
   link_home_path "$repo_dir/$relative" "$target_home/$relative"
 done
+
+if [[ "$machine_profile" == vm ]]; then
+  link_home_path "$repo_dir/profiles/vm/autostart/vboxclient.desktop" \
+    "$target_home/.config/autostart/vboxclient.desktop"
+elif [[ -e "$target_home/.config/autostart/vboxclient.desktop" || -L "$target_home/.config/autostart/vboxclient.desktop" ]]; then
+  backup_home_path "$target_home/.config/autostart/vboxclient.desktop"
+fi
 
 theme_helper="$repo_dir/bin/workstation-theme"
 theme_id=''
@@ -409,13 +480,27 @@ managed_user_unit_paths=(
   '.config/systemd/user/walker.service'
   '.config/systemd/user/wallpaper-restore.service'
   '.config/systemd/user/wl-clip-persist.service'
-  '.config/systemd/user/vboxclient-clipboard.service'
-  '.config/systemd/user/vboxclient-vmsvga.service'
 )
 
 for relative in "${managed_user_unit_paths[@]}"; do
   install_home_file "$repo_dir/$relative" "$target_home/$relative"
 done
+
+profile_units=(vboxclient-clipboard.service vboxclient-vmsvga.service)
+for unit in "${profile_units[@]}"; do
+  destination="$target_home/.config/systemd/user/$unit"
+  if [[ "$machine_profile" == vm ]]; then
+    install_home_file "$repo_dir/profiles/vm/user/$unit" "$destination"
+  elif [[ -e "$destination" || -L "$destination" ]]; then
+    backup_home_path "$destination"
+  fi
+done
+profile_dropin="$target_home/.config/systemd/user/blendos-workstation-session.target.d/20-machine-profile.conf"
+if [[ "$machine_profile" == vm ]]; then
+  install_home_file "$repo_dir/profiles/vm/user/20-machine-profile.conf" "$profile_dropin"
+elif [[ -e "$profile_dropin" || -L "$profile_dropin" ]]; then
+  backup_home_path "$profile_dropin"
+fi
 
 session_target="$target_home/.config/systemd/user/blendos-workstation-session.target"
 session_wants_link="$target_home/.config/systemd/user/wayland-session@workstation.desktop.target.wants/blendos-workstation-session.target"
@@ -527,8 +612,21 @@ fi # provision_account
 fi # install_home
 
 if [[ "$install_system" == true ]]; then
-  install_identity_assets
-  link_home_path "$repo_dir/system.yaml" "$target_home/system.yaml"
+  if [[ -z "${BLENDOS_WORKSTATION_SYSTEM_DEFINITION:-}" ]]; then
+    install -d -m0700 -- "$machine_state"
+    definition_stage="$(mktemp "$machine_state/.system.XXXXXX")"
+    python3 "$repo_dir/scripts/render-system-definition.py" "$machine_profile" > "$definition_stage"
+    if [[ -f "$system_definition" ]] && cmp -s "$definition_stage" "$system_definition"; then
+      rm -f -- "$definition_stage"
+    else
+      mv -f -- "$definition_stage" "$system_definition"
+    fi
+  fi
+  [[ -f "$system_definition" && "$system_definition" == /* ]] || {
+    printf 'Rendered System Definition must be an existing absolute file.\n' >&2
+    exit 1
+  }
+  link_home_path "$system_definition" "$target_home/system.yaml"
   if [[ "$install_home" == true ]] && getent passwd 'gnome-initial-setup' >/dev/null; then
     run_privileged userdel -- 'gnome-initial-setup'
     printf 'Removed transient account: gnome-initial-setup\n'
@@ -552,7 +650,7 @@ if [[ "$install_system" == true ]]; then
   fi
 
   if [[ "$install_home" == false ]]; then
-    printf 'System definition staged. Publish the RustDesk package and start its local server as documented in services/rustdesk/README.md before sudo akshara update; keep it running throughout the rebuild. Reboot deliberately, then rerun installation from an inactive graphical session to apply account and firewall wiring.\n'
+    printf 'System definition staged. Use ./bootstrap %s to rebuild; reboot deliberately, then rerun bootstrap from an inactive graphical session.\n' "$machine_profile"
   elif command -v ufw >/dev/null 2>&1; then
     # Default-deny unsolicited host traffic while preserving authenticated
     # tailnet access. RustDesk continues to work through its outbound relay.
@@ -568,6 +666,8 @@ if [[ "$install_system" == true ]]; then
 
   if [[ "$install_home" == true && "$target_home" == "$HOME" ]] &&
      command -v systemctl >/dev/null 2>&1; then
+    install_identity_assets
+    publish_machine_profile
     run_privileged systemctl daemon-reload
     run_privileged systemctl enable --now greetd.service
   fi

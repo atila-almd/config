@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+# Fresh-system provisioning. Reboot remains an explicit operator action.
+set -Eeuo pipefail
+umask 077
+repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+profile=''
+dry_run=false
+package=''
+usage() {
+  cat <<'EOF'
+Usage: ./bootstrap PROFILE [--dry-run] [--rustdesk-package ABSOLUTE_PATH]
+
+Select vm or the owner-approved physical profile explicitly. First run stages
+and rebuilds the system, then requests a deliberate reboot. Rerun the same
+command after reboot to deploy home configuration and enable session components.
+Dry-run reads source/state only: no sudo, downloads, rebuild, deployment or writes.
+EOF
+}
+fail() { printf 'bootstrap: %s\n' "$*" >&2; exit 1; }
+while (($#)); do
+  case "$1" in
+    --dry-run) dry_run=true ;;
+    --rustdesk-package)
+      [[ $# -ge 2 ]] || fail 'missing package path'
+      package="$2"; shift ;;
+    -h|--help) usage; exit 0 ;;
+    --*) fail "unknown option: $1" ;;
+    *) [[ -z "$profile" ]] || fail 'choose exactly one Machine Profile'; profile="$1" ;;
+  esac
+  shift
+done
+[[ -n "$profile" ]] || { usage >&2; exit 2; }
+command -v python3 >/dev/null || fail 'python3 is required'
+python3 -c 'import yaml' 2>/dev/null || fail 'python-yaml (PyYAML, used by Akshara) is required'
+# Validate before creating a state directory or changing the machine.
+definition="$(python3 "$repo_dir/scripts/render-system-definition.py" "$profile")"
+digest="$(printf '%s\n' "$definition" | sha256sum | cut -d' ' -f1)"
+state_home="${XDG_STATE_HOME:-$HOME/.local/state}"
+[[ "$state_home" == /* ]] || fail 'XDG_STATE_HOME must be absolute'
+state_home="$(realpath -m -- "$state_home")"
+[[ "$state_home" == /* && "$state_home" != "$repo_dir" && "$state_home" != "$repo_dir"/* ]] ||
+  fail 'XDG_STATE_HOME must be absolute and outside the checkout'
+if [[ -n "$package" ]]; then
+  [[ "$package" == /* && -f "$package" ]] || fail 'RustDesk package must be an existing absolute path'
+fi
+machine_state="$state_home/blendos-workstation/machine"
+package_repo="$state_home/blendos-workstation/package-repo"
+manual() {
+  cat <<EOF
+Manual after provisioning:
+  - Log in through Workstation, then run the installed validators in README.md.
+  - Verify physical outputs/GPU, audio/microphone, networking, lock/sleep and portals.
+  - Configure Git identities with git-profile, authenticate Tailscale, pair RustDesk.
+  - Configure backup storage/credentials and enable its timer only when desired.
+  - Review Capability status: source checks and VM evidence do not pass hardware.
+Local State: $state_home/blendos-workstation/
+EOF
+}
+if [[ "$dry_run" == true ]]; then
+  printf 'DRY RUN: explicit Machine Profile %s; rendered definition SHA-256 %s\n' "$profile" "$digest"
+  printf 'Would check blendOS v4/x86_64, prerequisites and an inactive graphical session.\n'
+  printf 'Would stage %s/system.yaml and preserve displaced /system.yaml and home files.\n' "$machine_state"
+  printf 'Would publish/reuse the supplied RustDesk artifact and serve its loopback repository during sudo akshara update.\n'
+  printf 'Would request a deliberate reboot, then deploy configuration/enable components on the next invocation.\n'
+  printf 'A completed matching definition skips rebuilding; a same-boot pending rebuild cannot deploy home files.\n'
+  [[ -f "$package_repo/workstation-local.db" || -n "$package" ]] ||
+    printf 'MISSING PREREQUISITE: supply --rustdesk-package PATH or publish the reviewed native artifact first (services/rustdesk/README.md).\n'
+  for prerequisite in sudo akshara systemctl flock; do
+    command -v "$prerequisite" >/dev/null || printf 'MISSING PREREQUISITE: %s\n' "$prerequisite"
+  done
+  manual
+  exit 0
+fi
+[[ "$(id -u)" != 0 ]] || fail 'run as the target account, not root'
+[[ "$(uname -m)" == x86_64 ]] || fail 'only the declared x86_64 package profile is supported'
+distribution="$(awk -F= '$1=="ID" {gsub(/"/, "", $2); print $2}' /etc/os-release)"
+[[ "$distribution" == blendos ]] || fail 'apply mode requires an installed blendOS account; use --dry-run elsewhere'
+# v5's URL tracks/stages are a different format, not a supported implicit migration.
+python3 - /system.yaml <<'PY' || fail 'this bootstrap requires blendOS v4; v5 tracks/stages are unsupported'
+import pathlib,sys,yaml
+config=yaml.safe_load(pathlib.Path(sys.argv[1]).read_text())
+if not isinstance(config,dict) or 'repo' not in config or any(k in config for k in ['stages','modules','post-stages']):
+    sys.exit(1)
+PY
+for prerequisite in sudo akshara systemctl flock readlink install cmp pacman; do
+  command -v "$prerequisite" >/dev/null || fail "required command unavailable: $prerequisite"
+done
+systemctl --user is-active --quiet graphical-session.target &&
+  fail 'save work and log out deliberately; run bootstrap from a TTY or SSH'
+systemctl is-active --quiet akshara-system-update.service && fail 'Akshara update service is already active'
+boot_id="$(cat /proc/sys/kernel/random/boot_id)"
+[[ -n "$boot_id" ]] || fail 'cannot read boot identity'
+temporary=''
+server_pid=''
+cleanup() {
+  [[ -z "$server_pid" ]] || { kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true; }
+  [[ -z "$temporary" ]] || rm -f -- "$temporary"
+}
+trap cleanup EXIT
+install -d -m0700 -- "$machine_state"
+exec 9>"$machine_state/bootstrap.lock"
+flock -n 9 || fail 'another bootstrap is running'
+pending=''; pending_boot=''; completed=''
+[[ ! -f "$machine_state/pending.sha256" ]] || read -r pending < "$machine_state/pending.sha256"
+[[ ! -f "$machine_state/pending.boot" ]] || read -r pending_boot < "$machine_state/pending.boot"
+[[ ! -f "$machine_state/completed.sha256" ]] || read -r completed < "$machine_state/completed.sha256"
+if [[ -n "$pending" && "$pending_boot" == "$boot_id" ]]; then
+  printf 'A successful rebuild is staged. Reboot deliberately, then rerun ./bootstrap %s. No home files were deployed.\n' "$profile"
+  exit 0
+fi
+write_state() {
+  local name="$1" value="$2" staging
+  staging="$(mktemp "$machine_state/.state.XXXXXX")"
+  printf '%s\n' "$value" > "$staging"
+  mv -f -- "$staging" "$machine_state/$name"
+}
+if [[ "$pending" != "$digest" && ( "$completed" != "$digest" || -n "$pending" ) ]]; then
+  if [[ -n "$package" ]]; then
+    [[ "$package" == /* && -f "$package" ]] || fail 'RustDesk package must be an existing absolute path'
+    for prerequisite in repo-add bsdtar; do command -v "$prerequisite" >/dev/null || fail "required command unavailable: $prerequisite"; done
+    bash "$repo_dir/scripts/rustdesk-package-repo.sh" publish "$package"
+  fi
+  [[ -f "$package_repo/workstation-local.db" ]] ||
+    fail 'publish the reviewed native RustDesk package first, or supply --rustdesk-package PATH; see services/rustdesk/README.md'
+  sudo -v
+  temporary="$(mktemp "$machine_state/.system.XXXXXX")"
+  printf '%s\n' "$definition" > "$temporary"
+  mv -f -- "$temporary" "$machine_state/system.yaml"; temporary=''
+  write_state profile "$profile"
+  BLENDOS_WORKSTATION_MACHINE_PROFILE="$profile" \
+  BLENDOS_WORKSTATION_SYSTEM_DEFINITION="$machine_state/system.yaml" \
+    bash "$repo_dir/install.sh" --system-only
+  server_ready() {
+    python3 - "$package_repo/workstation-local.db" <<'PY'
+import pathlib,sys,urllib.request
+try:
+    with urllib.request.urlopen('http://127.0.0.1:18789/workstation-local.db',timeout=1) as response:
+        if response.read() != pathlib.Path(sys.argv[1]).read_bytes(): sys.exit(1)
+except Exception: sys.exit(1)
+PY
+  }
+  if ! server_ready; then
+    bash "$repo_dir/scripts/rustdesk-package-repo.sh" serve > "$machine_state/package-server.log" 2>&1 &
+    server_pid=$!
+    for ((attempt=0; attempt<30; attempt++)); do
+      server_ready && break
+      kill -0 "$server_pid" 2>/dev/null || fail 'package server failed; inspect machine/package-server.log'
+      sleep 0.2
+    done
+    server_ready || fail 'package server did not become ready'
+  fi
+  # A failure leaves backups/source intact and never records a successful build.
+  sudo -- akshara update
+  write_state pending.boot "$boot_id"
+  write_state pending.sha256 "$digest"
+  printf 'Rebuild succeeded. Reboot deliberately, then rerun ./bootstrap %s.\n' "$profile"
+  manual
+  exit 0
+fi
+# The matching staged definition can deploy only after a different boot.
+[[ -f "$machine_state/system.yaml" ]] || fail 'rendered definition is missing; inspect machine Local State'
+[[ "$(sha256sum "$machine_state/system.yaml" | cut -d' ' -f1)" == "$digest" ]] ||
+  fail 'rendered definition changed outside bootstrap; inspect machine Local State'
+printf 'Checking that the selected package set is installed...\n'
+python3 "$repo_dir/scripts/render-system-definition.py" "$profile" | python3 -c \
+  'import sys,yaml; d=yaml.safe_load(sys.stdin); print("\n".join(d.get("packages",[])+d.get("aur-packages",[])))' |
+  while IFS= read -r declared; do pacman -Q -- "$declared" >/dev/null || fail "package absent after rebuild: $declared"; done
+for prerequisite in go jq mise zsh; do command -v "$prerequisite" >/dev/null || fail "missing post-rebuild prerequisite: $prerequisite"; done
+BLENDOS_WORKSTATION_MACHINE_PROFILE="$profile" \
+BLENDOS_WORKSTATION_SYSTEM_DEFINITION="$machine_state/system.yaml" \
+  bash "$repo_dir/install.sh"
+systemctl --user enable blendos-workstation-session.target
+write_state completed.sha256 "$digest"
+rm -f -- "$machine_state/pending.sha256" "$machine_state/pending.boot"
+printf 'Managed Configuration deployed. Session components start at the next deliberate Workstation login.\n'
+manual

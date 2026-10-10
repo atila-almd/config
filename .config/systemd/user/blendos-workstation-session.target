@@ -2,7 +2,7 @@
 Description=Integrated Quickshell workstation session
 Documentation=https://github.com/Vladimir-csp/uwsm
 Requires=workstation-lock-guard.service
-Wants=workstation-shell.service workstation-data.service workstation-launcher.service hypridle.service awww-daemon.service dunst.service elephant.service hyprpolkitagent.service vboxclient-clipboard.service vboxclient-vmsvga.service walker.service wallpaper-restore.service wl-clip-persist.service
+Wants=workstation-shell.service workstation-data.service workstation-launcher.service hypridle.service awww-daemon.service dunst.service elephant.service hyprpolkitagent.service walker.service wallpaper-restore.service wl-clip-persist.service
 After=wayland-session@workstation.desktop.target workstation-lock-guard.service
 PartOf=wayland-session@workstation.desktop.target
 Conflicts=wayland-session-shutdown.target

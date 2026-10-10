@@ -21,7 +21,7 @@ under `/etc` because blendOS keeps `/usr` immutable at runtime; it is still
 system-readable and is guarded by the greetd service condition.
 
 The host may select the VirtualBox monitor profile and renderer workaround only
-from its DMI check. Keep authentication/session ownership in greetd and the
+from the explicitly selected `/etc/blendos-workstation/machine-profile` marker. Keep authentication/session ownership in greetd and the
 greeter controller; do not add PAM, desktop user services, private theme
 release reads, compositor `exec-once` paths or fallback login sessions here.
 

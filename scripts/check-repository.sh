@@ -5,7 +5,7 @@ repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd -- "$repo_dir"
 log="$(mktemp)"
 trap 'rm -f -- "$log"' EXIT
-for source in install.sh bin/* scripts/*.sh; do bash -n "$source"; done
+for source in bootstrap install.sh bin/* scripts/*.sh; do bash -n "$source"; done
 count=0
 for check in scripts/validate-*.sh scripts/test-*.sh; do
   if bash "$check" >"$log" 2>&1; then

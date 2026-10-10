@@ -19,7 +19,8 @@ for socket_path in "$runtime_dir"/wayland-*; do
 done
 
 config="$identity_root/hyprland.lua"
-if grep -Eiq 'virtualbox|innotek' /sys/class/dmi/id/product_name /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+profile="$(cat "${BLENDOS_WORKSTATION_PROFILE_FILE:-/etc/blendos-workstation/machine-profile}" 2>/dev/null || true)"
+if [[ "$profile" == vm ]]; then
     config="$identity_root/hyprland-vm.lua"
     export QT_QUICK_BACKEND=software
     export LIBGL_ALWAYS_SOFTWARE=true

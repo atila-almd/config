@@ -176,7 +176,7 @@ case "${1:-audio}" in
   snapshot) (($# == 1)) || exit 2; need_command jq; snapshot ;;
   audio-mixer)
     (($# == 1)) || exit 2; need_command pavucontrol
-    if [[ "$(systemd-detect-virt 2>/dev/null || true)" == oracle ]]; then export GSK_RENDERER="${GSK_RENDERER:-cairo}"; fi
+    if [[ "$(cat "${BLENDOS_WORKSTATION_PROFILE_FILE:-/etc/blendos-workstation/machine-profile}" 2>/dev/null || true)" == vm ]]; then export GSK_RENDERER="${GSK_RENDERER:-cairo}"; fi
     exec pavucontrol ;;
   network) (($# == 1)) || exit 2; need_command nm-connection-editor; exec nm-connection-editor ;;
   audio|media|display|power|settings|notifications)

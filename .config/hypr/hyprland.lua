@@ -6,13 +6,11 @@
 -- Monitor
 local monitor_mode = "preferred"
 local monitor_scale = "auto"
-local dmi_product_file = io.open("/sys/class/dmi/id/product_name", "r")
-if dmi_product_file then
-    local dmi_product = dmi_product_file:read("*l") or ""
-    dmi_product_file:close()
-    if dmi_product == "VirtualBox" then
-        -- VirtualBox marks 640x480 preferred despite advertising 1080p and
-        -- exposes synthetic display DPI that makes auto scaling oversized.
+local profile_file = io.open("/etc/blendos-workstation/machine-profile", "r")
+if profile_file then
+    local profile = profile_file:read("*l") or ""
+    profile_file:close()
+    if profile == "vm" then
         monitor_mode = "1920x1080@60"
         monitor_scale = 1
     end

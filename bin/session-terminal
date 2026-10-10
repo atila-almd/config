@@ -2,7 +2,8 @@
 
 set -Eeuo pipefail
 
-if [[ "$(systemd-detect-virt 2>/dev/null || true)" == 'oracle' ]]; then
+profile="$(cat "${BLENDOS_WORKSTATION_PROFILE_FILE:-/etc/blendos-workstation/machine-profile}" 2>/dev/null || true)"
+if [[ "$profile" == vm ]]; then
   # VirtualBox's accelerated VMSVGA path disconnects Ghostty from Wayland.
   # Mesa's software renderer provides the OpenGL level Ghostty requires.
   export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"

@@ -61,7 +61,9 @@ archive to the blendOS account and run `publish` there. That account needs
 the compiled DRM/wake markers, the EGL library and the service/launcher payload.
 The build additionally checks the upstream runtime ABI gate.
 
-Keep the foreground server running during `sudo akshara update` in another
+For fresh installation, [bootstrap](../../README.md#requirements-and-bootstrap)
+accepts `--rustdesk-package` and manages this loopback server during its rebuild.
+For direct maintenance rebuilds, keep the foreground server running during `sudo akshara update` in another
 terminal. `system.yaml` declares the `workstation-local` pacman repository at
 `http://127.0.0.1:18789`; the helper serves its actual database and package from
 `${XDG_STATE_HOME:-$HOME/.local/state}/blendos-workstation/package-repo`.

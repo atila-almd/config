@@ -35,8 +35,6 @@ services=(
   'walker.service'
   'wallpaper-restore.service'
   'wl-clip-persist.service'
-  'vboxclient-clipboard.service'
-  'vboxclient-vmsvga.service'
 )
 services+=(workstation-launcher.service)
 
@@ -117,13 +115,14 @@ done
 expect_line "$unit_dir/awww-daemon.service" 'ExecStart=/usr/bin/awww-daemon'
 expect_line "$unit_dir/awww-daemon.service" 'ExecStop=/usr/bin/awww kill'
 expect_line "$unit_dir/wl-clip-persist.service" 'ExecStart=/usr/bin/wl-clip-persist --clipboard regular --disable-timestamps'
-expect_line "$unit_dir/vboxclient-clipboard.service" 'ConditionVirtualization=oracle'
-expect_line "$unit_dir/vboxclient-clipboard.service" 'ExecStart=/usr/bin/VBoxClient --session-type wayland --clipboard --foreground'
-expect_line "$unit_dir/vboxclient-vmsvga.service" 'ConditionVirtualization=oracle'
-expect_line "$unit_dir/vboxclient-vmsvga.service" 'ExecStart=/usr/bin/VBoxClient --session-type wayland --vmsvga-session --foreground'
-expect_line "$repo_dir/.config/autostart/vboxclient.desktop" 'Hidden=true'
-expect_line "$repo_dir/install.sh" "  '.config/autostart/vboxclient.desktop'"
-expect_line "$repo_dir/install.sh" "  '.config/systemd/user/vboxclient-vmsvga.service'"
+vm_unit_dir="$repo_dir/profiles/vm/user"
+expect_line "$vm_unit_dir/vboxclient-clipboard.service" 'ExecStart=/usr/bin/VBoxClient --session-type wayland --clipboard --foreground'
+expect_line "$vm_unit_dir/vboxclient-vmsvga.service" 'ExecStart=/usr/bin/VBoxClient --session-type wayland --vmsvga-session --foreground'
+expect_line "$vm_unit_dir/20-machine-profile.conf" 'Wants=vboxclient-clipboard.service vboxclient-vmsvga.service'
+expect_line "$repo_dir/profiles/vm/autostart/vboxclient.desktop" 'Hidden=true'
+grep -Fq 'profiles/vm/autostart/vboxclient.desktop' "$repo_dir/install.sh" || fail 'installer misses the vm autostart override'
+grep -Fq 'vboxclient-vmsvga.service' "$repo_dir/install.sh" || fail 'installer misses vm display assistant'
+if grep -q 'vboxclient' "$target_file"; then fail 'VM services leak into the common session target'; fi
 expect_line "$unit_dir/elephant.service" 'ExecStart=/usr/bin/elephant'
 expect_line "$unit_dir/walker.service" 'Requires=elephant.service'
 expect_line "$unit_dir/walker.service" 'ExecStart=%h/.local/bin/blend_bin/session-walker --gapplication-service'
@@ -135,6 +134,11 @@ expect_line "$unit_dir/workstation-shell.service" "PartOf=$target"
 expect_line "$unit_dir/workstation-lock.service" "PartOf=$target"
 expect_line "$unit_dir/workstation-lock.service" 'Restart=on-failure'
 if [[ "$check_installed" == true ]]; then
+  installed_profile="$(cat /etc/blendos-workstation/machine-profile 2>/dev/null || true)"
+  [[ -n "$installed_profile" ]] || fail 'no explicit installed Machine Profile'
+  if [[ "$installed_profile" == vm ]]; then
+    services+=(vboxclient-clipboard.service vboxclient-vmsvga.service)
+  fi
   installed_units=("$target" "${services[@]}")
   if ! systemd-analyze --user verify "${installed_units[@]}"; then
     fail 'systemd rejected one or more installed user units'
@@ -144,9 +148,6 @@ if [[ "$check_installed" == true ]]; then
   fi
   if systemctl --user is-active --quiet graphical-session.target; then
     for unit in "$target" "${services[@]}"; do
-      if [[ "$unit" == vboxclient-* ]] && [[ "$(systemd-detect-virt 2>/dev/null || true)" != oracle ]]; then
-        continue
-      fi
       if ! systemctl --user is-active --quiet "$unit"; then
         fail "$unit is not active in the graphical session"
       fi

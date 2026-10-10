@@ -44,7 +44,7 @@ The source arguments must be absolute existing paths. The helper resolves them
 with `realpath`, rejects newline paths, and refuses a local repository inside
 any source, or containing a source. Root `/` is excluded from this file-backup
 workflow. Changed symlink targets require explicit reconfiguration.
-`~/omarchy` may resolve to the VirtualBox `vboxsf` working tree;
+The repository checkout may resolve to the VirtualBox `vboxsf` working tree;
 the guest disk does not protect the Windows-side data if the host share is
 excluded or unavailable. Include resolved working-tree content deliberately;
 Restic records symlinks rather than following them.
@@ -184,7 +184,8 @@ workstation-maintain verify-update
 Before `update`, [start the local RustDesk package server](../rustdesk/README.md#build-and-publish)
 and keep it running throughout the Akshara rebuild.
 
-`preflight` requires blendOS and `/system.yaml` resolving to this checkout,
+`preflight` requires blendOS and `/system.yaml` resolving to this account’s
+rendered machine Local State, matching this checkout and its selected profile. It
 shows available storage and updater service state, verifies that the configured
 loopback package repository serves `workstation-local.db`, and checks the
 configured backup repository. `update` creates a `pre-update` file backup before

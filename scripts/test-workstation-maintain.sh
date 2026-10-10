@@ -6,7 +6,10 @@ trap 'rm -rf -- "$temporary"' EXIT
 fixture="$temporary/checkout with spaces"
 mkdir -p "$temporary/bin" "$fixture/bin" "$fixture/scripts" "$temporary/home"
 cp "$repo_dir/bin/workstation-maintain" "$fixture/bin/workstation-maintain"
-touch "$fixture/system.yaml"
+mkdir -p "$fixture/scripts"
+cat > "$fixture/scripts/render-system-definition.py" <<'PY'
+print("package-repos:\n  - name: workstation-local\n    repo-url: http://127.0.0.1:18789")
+PY
 for validator in validate-component-contract.sh validate-desktop-shell.sh validate-user-session.sh; do
   cat > "$fixture/scripts/$validator" <<'EOF'
 #!/usr/bin/env bash
@@ -24,7 +27,7 @@ esac
 EOF
 cat > "$temporary/bin/readlink" <<'EOF'
 #!/usr/bin/env bash
-if [[ "${*: -1}" == /system.yaml ]]; then printf '%s/system.yaml\n' "$MAINTAIN_REPO"; else /usr/bin/readlink "$@"; fi
+if [[ "${*: -1}" == /system.yaml ]]; then printf '%s/blendos-workstation/machine/system.yaml\n' "$XDG_STATE_HOME"; else /usr/bin/readlink "$@"; fi
 EOF
 cat > "$temporary/bin/cat" <<'EOF'
 #!/usr/bin/env bash
@@ -66,6 +69,9 @@ done
 chmod +x "$temporary/bin/"*
 export PATH="$temporary/bin:$PATH" HOME="$temporary/home" XDG_STATE_HOME="$temporary/state"
 export MAINTAIN_LOG="$temporary/log" MAINTAIN_REPO="$fixture"
+mkdir -p "$XDG_STATE_HOME/blendos-workstation/machine"
+printf 'package-repos:\n  - name: workstation-local\n    repo-url: http://127.0.0.1:18789\n' > "$XDG_STATE_HOME/blendos-workstation/machine/system.yaml"
+printf 'vm\n' > "$XDG_STATE_HOME/blendos-workstation/machine/profile"
 helper="$fixture/bin/workstation-maintain"
 pending="$XDG_STATE_HOME/blendos-workstation/maintenance/pending.json"
 expect_failure() { if "$@" > "$temporary/out" 2>&1; then printf 'unexpected success\n' >&2; exit 1; fi; }

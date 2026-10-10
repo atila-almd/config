@@ -31,3 +31,11 @@ __pycache__/
 *.pkg.tar.*
 # Machine selection, rendered System Definitions, releases, records and secrets
 # belong under XDG_STATE_HOME, never in these managed source directories.
+
+# Accidental copies of account key stores, private caches and device state.
+/.ssh/
+/.gnupg/
+/.local/state/
+/.local/share/keyrings/
+/.cache/
+/local.env

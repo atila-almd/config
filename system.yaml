@@ -8,8 +8,8 @@ package-repos:
   - name: 'workstation-local'
     repo-url: 'http://127.0.0.1:18789'
 
-# Active machine profile: AMD CPU, NVIDIA GPU, wired Ethernet desktop.
-# Disabled profiles are retained as commented templates and install nothing.
+# Common System Definition. Hardware packages/services belong to profiles/*.yaml.
+# ./bootstrap composes the selected profile into private Local State.
 packages:
   # Workstation shell, independent locker and native QML validation tools.
   - 'quickshell'
@@ -29,6 +29,9 @@ packages:
   - 'gcc-libs'
   - 'gettext'
   - 'git'
+  # Bootstrap composes explicit Machine Profiles with Akshara's YAML parser.
+  - 'python'
+  - 'python-yaml'
   # Build the project-owned desktop data service during home installation.
   - 'go'
   - 'glibc'
@@ -50,7 +53,6 @@ packages:
   - 'xz'
 
   # Boot, kernel, and firmware
-  - 'amd-ucode'
   - 'efibootmgr'
   - 'grub'
   - 'linux-firmware'
@@ -61,11 +63,6 @@ packages:
   - 'mkinitcpio-archiso'
   - 'os-prober'
   - 'syslinux'
-
-  # Current graphics hardware: NVIDIA RTX 4060
-  - 'egl-wayland'
-  - 'nvidia-dkms'
-  - 'nvidia-utils'
 
   # Storage, filesystems, and recovery
   - 'btrfs-progs'
@@ -207,9 +204,6 @@ packages:
   - 'podman'
   - 'podman-compose'
 
-  # VirtualBox development VM only; disable both entries for bare metal.
-  - 'virtualbox-guest-utils'
-
   # Optional profile: generic Wi-Fi
   # - 'wireless-regdb'
   # - 'wireless_tools'
@@ -300,9 +294,6 @@ services:
   # Remote access
   - 'rustdesk.service'
   - 'tailscaled'
-
-  # VirtualBox development VM only; disable with virtualbox-guest-utils.
-  - 'vboxservice'
 
   # Optional profile: Bluetooth; requires the bluez package above.
   # - 'bluetooth'

@@ -1,88 +1,88 @@
-# capability	package	executable	integration
-# Plan 009 Option 1 keeps Dunst as the notification owner; workstation-data
-# publishes its bounded history contract and the OSD reuses Island's attention
-# surface. Dunst remains the backend for popup/control operations.
-desktop-data	go	workstation-data	helper:workstation-data
-island-projects-card	quickshell	session-workstation-shell	helper:session-workstation-shell
-island-card-surface	quickshell	session-workstation-shell	hypr:binding
-terminal	ghostty	session-terminal	hypr:var:terminal
-file-manager	nemo	nemo	hypr:var:fileManager
-launcher	quickshell	session-workstation-shell	hypr:binding
-launcher-service	go	workstation-launcher	systemd-user:workstation-launcher.service
-launcher-backend	elephant	elephant	systemd-user:elephant.service
-audio-control	wireplumber	wpctl	hypr:binding
-audio-mixer	pavucontrol	workstation-controls	helper:workstation-controls
-brightness-control	brightnessctl	brightnessctl	hypr:binding
-media-control	playerctl	playerctl	hypr:binding
-island-shell	quickshell	session-workstation-shell	systemd-user:workstation-shell.service
-island-dashboard	quickshell	session-workstation-shell	hypr:binding
-island-timer	quickshell	session-workstation-shell	hypr:binding
-notifications	dunst	dunst	systemd-user:dunst.service
-notification-history	quickshell	session-workstation-shell	hypr:binding
-notification-control	dunst	dunstctl	hypr:binding
-wallpaper	awww	awww-daemon	systemd-user:awww-daemon.service
-wallpaper-selection	awww	workstation-wallpaper	helper:workstation-wallpaper
-wallpaper-keybinding	awww	workstation-wallpaper	hypr:binding
-clipboard-persistence	wl-clip-persist	wl-clip-persist	systemd-user:wl-clip-persist.service
-vm-shared-clipboard	virtualbox-guest-utils	VBoxClient	systemd-user:vboxclient-clipboard.service
-vm-display-assistant	virtualbox-guest-utils	VBoxClient	systemd-user:vboxclient-vmsvga.service
-lock-screen	quickshell	session-lock	hypr:binding
-idle-lock	hypridle	hypridle	systemd-user:hypridle.service
-protected-suspend	go	workstation-suspend	helper:workstation-suspend
-theme-selection	jq	workstation-theme	helper:workstation-theme
-theme-keybinding	jq	workstation-theme	hypr:binding
-screenshot	hyprshot	workstation-capture	hypr:binding
-color-picker	hyprpicker	workstation-capture	helper:workstation-capture
-screen-recording	wf-recorder	workstation-record	helper:workstation-record
-screen-ocr	tesseract	workstation-media	helper:workstation-media
-ocr-english	tesseract-data-eng	workstation-media	helper:workstation-media
-ocr-portuguese	tesseract-data-por	workstation-media	helper:workstation-media
-qr-reader	zbar	workstation-media	helper:workstation-media
-qr-generator	qrencode	workstation-media	helper:workstation-media
-image-conversion	imagemagick	workstation-media	helper:workstation-media
-media-conversion	ffmpeg	workstation-media	helper:workstation-media
-file-sharing	wl-clipboard	workstation-media	helper:workstation-media
-reminders	libnotify	workstation-remind	helper:workstation-remind
-desktop-utilities	walker-bin	session-walker	hypr:binding
-control-menu-theme	jq	workstation-theme	menu:workstation.toml
-control-menu-wallpaper	awww	workstation-wallpaper	menu:workstation.toml
-control-menu-shortcuts	hyprland	workstation-keybindings	menu:workstation.toml
-control-menu-audio	quickshell	workstation-controls	menu:workstation.toml
-control-menu-network	network-manager-applet	workstation-controls	menu:workstation.toml
-control-menu-search	walker-bin	walker	menu:workstation.toml
-control-menu-notifications	dunst	dunstctl	menu:workstation-notifications.toml
-control-menu-capture	hyprshot	workstation-capture	menu:workstation-capture.toml
-control-menu-browser	zen-browser-bin	zen-browser	menu:workstation-tools.toml
-control-menu-terminal	ghostty	session-terminal	menu:workstation-tools.toml
-system-monitor	btop	btop	menu:workstation-tools.toml
-terminal-files	yazi	yazi	menu:workstation-tools.toml
-terminal-editor	neovim	nvim	menu:workstation-tools.toml
-clipboard-history	elephant-clipboard	walker	hypr:binding
-symbol-picker	elephant-symbols	walker	hypr:binding
-window-switcher	elephant-windows	walker	hypr:binding
-browser-keybinding	zen-browser-bin	zen-browser	hypr:binding
-shortcut-reference	hyprland	workstation-keybindings	hypr:binding
-project-launcher	ghostty	workstation-project	hypr:binding
-agent-status	time	workstation-agent	helper:workstation-agent
-workstation-diagnosis	systemd	workstation-doctor	helper:workstation-doctor
-file-backup	restic	workstation-backup	helper:workstation-backup
-update-checkpoints	blend	workstation-maintain	helper:workstation-maintain
-firmware-inspection	fwupd	workstation-doctor	helper:workstation-doctor
-desktop-settings	jq	workstation-controls	hypr:binding
-directory-default	nemo	nemo	xdg-default:nemo.desktop
-image-viewer	imv	imv	xdg-default:imv.desktop
-document-viewer	zathura	zathura	xdg-default:org.pwmt.zathura.desktop
-pdf-backend	zathura-pdf-mupdf	zathura	xdg-default:org.pwmt.zathura.desktop
-media-player	mpv	mpv	xdg-default:mpv.desktop
-policy-agent	hyprpolkitagent	/usr/lib/hyprpolkitagent/hyprpolkitagent	systemd-user:hyprpolkitagent.service
-portal	xdg-desktop-portal-hyprland	/usr/lib/xdg-desktop-portal-hyprland	dbus-user:xdg-desktop-portal-hyprland.service
-network-applet	network-manager-applet	nm-applet	xdg-autostart:nm-applet.desktop
-network-editor	network-manager-applet	workstation-controls	menu:workstation.toml
-browser	zen-browser-bin	zen-browser	xdg-default:zen.desktop
-host-firewall	ufw	ufw	system-service:ufw
-remote-overlay-network	tailscale	tailscale	system-service:tailscaled
-remote-desktop	rustdesk-unattended-wayland	rustdesk	system-service:rustdesk.service
-graphical-login	greetd	greetd	system-service:greetd.service
-login-greeter	quickshell	/etc/blendos-workstation/identity/greeter-host	system-service:greetd.service
-container-engine	podman	podman	rootless-user:podman.socket
-compose-provider	podman-compose	podman-compose	podman:compose-provider
+# capability	package	executable	integration	workflows	profiles	vm_status	physical_status	notes	adaptation	justification	evidence
+# Status is recorded acceptance evidence, never inferred from a package declaration.
+desktop-data	go	workstation-data	helper:workstation-data	Work on projects and run coding agents	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/development/README.md
+island-projects-card	quickshell	session-workstation-shell	helper:session-workstation-shell	Work on projects and run coding agents	all	Planned	Planned	Current presentation/adapter source is present; earlier shell evidence does not accept this replacement	Compatibility Shim	Client-scoped software rendering only in the explicitly selected vm profile; native rendering on physical hardware	services/development/README.md
+island-card-surface	quickshell	session-workstation-shell	hypr:binding	Navigate the desktop and open applications	all	Planned	Planned	Current presentation/adapter source is present; earlier shell evidence does not accept this replacement	Compatibility Shim	Client-scoped software rendering only in the explicitly selected vm profile; native rendering on physical hardware	services/desktop/CHECKLIST.md
+terminal	ghostty	session-terminal	hypr:var:terminal	Navigate the desktop and open applications	all	Installed	Planned	Component observed in VM; complete current workflow and explicit-profile deployment need verification	Compatibility Shim	Client-scoped software rendering only in the explicitly selected vm profile; native rendering on physical hardware	services/desktop/CHECKLIST.md
+file-manager	nemo	nemo	hypr:var:fileManager	Navigate the desktop and open applications	all	Installed	Planned	Prior VM integration evidence exists; explicit-profile installation and lifecycle need renewed acceptance	Composition	-	services/desktop/CHECKLIST.md
+launcher	quickshell	session-workstation-shell	hypr:binding	Navigate the desktop and open applications	all	Planned	Planned	Current presentation/adapter source is present; earlier shell evidence does not accept this replacement	Compatibility Shim	Client-scoped software rendering only in the explicitly selected vm profile; native rendering on physical hardware	services/desktop/CHECKLIST.md
+launcher-service	go	workstation-launcher	systemd-user:workstation-launcher.service	Navigate the desktop and open applications	all	Planned	Planned	Current presentation/adapter source is present; earlier shell evidence does not accept this replacement	Composition	-	services/desktop/CHECKLIST.md
+launcher-backend	elephant	elephant	systemd-user:elephant.service	Navigate the desktop and open applications	all	Installed	Planned	Component observed in VM; complete current workflow and explicit-profile deployment need verification	Composition	-	services/desktop/CHECKLIST.md
+audio-control	wireplumber	wpctl	hypr:binding	Adjust audio and control playback	all	Installed	Planned	Component observed in VM; complete current workflow and explicit-profile deployment need verification	Composition	-	services/desktop/CHECKLIST.md
+audio-mixer	pavucontrol	workstation-controls	helper:workstation-controls	Adjust audio and control playback	all	Installed	Planned	Component observed in VM; complete current workflow and explicit-profile deployment need verification	Compatibility Shim	Client-scoped software rendering only in the explicitly selected vm profile; native rendering on physical hardware	services/desktop/CHECKLIST.md
+brightness-control	brightnessctl	brightnessctl	hypr:binding	Adjust physical display brightness	all	Installed	Planned	Component observed in VM; complete current workflow and explicit-profile deployment need verification	Composition	-	services/desktop/CHECKLIST.md
+media-control	playerctl	playerctl	hypr:binding	Adjust audio and control playback	all	Installed	Planned	Component observed in VM; complete current workflow and explicit-profile deployment need verification	Composition	-	services/desktop/CHECKLIST.md
+island-shell	quickshell	session-workstation-shell	systemd-user:workstation-shell.service	Navigate the desktop and open applications	all	Planned	Planned	Current presentation/adapter source is present; earlier shell evidence does not accept this replacement	Compatibility Shim	Client-scoped software rendering only in the explicitly selected vm profile; native rendering on physical hardware	services/desktop/CHECKLIST.md
+island-dashboard	quickshell	session-workstation-shell	hypr:binding	Navigate the desktop and open applications	all	Planned	Planned	Current presentation/adapter source is present; earlier shell evidence does not accept this replacement	Compatibility Shim	Client-scoped software rendering only in the explicitly selected vm profile; native rendering on physical hardware	services/desktop/CHECKLIST.md
+island-timer	quickshell	session-workstation-shell	hypr:binding	Manage focus time and reminders	all	Planned	Planned	Current presentation/adapter source is present; earlier shell evidence does not accept this replacement	Compatibility Shim	Client-scoped software rendering only in the explicitly selected vm profile; native rendering on physical hardware	services/desktop/CHECKLIST.md
+notifications	dunst	dunst	systemd-user:dunst.service	Read notifications and control interruptions	all	Installed	Planned	Prior VM integration evidence exists; explicit-profile installation and lifecycle need renewed acceptance	Composition	-	services/desktop/CHECKLIST.md
+notification-history	quickshell	session-workstation-shell	hypr:binding	Read notifications and control interruptions	all	Planned	Planned	Plan 009 Option 1; Current presentation/adapter source is present; earlier shell evidence does not accept this replacement	Compatibility Shim	Client-scoped software rendering only in the explicitly selected vm profile; native rendering on physical hardware	services/desktop/CHECKLIST.md
+notification-control	dunst	dunstctl	hypr:binding	Read notifications and control interruptions	all	Installed	Planned	Prior VM integration evidence exists; explicit-profile installation and lifecycle need renewed acceptance	Composition	-	services/desktop/CHECKLIST.md
+wallpaper	awww	awww-daemon	systemd-user:awww-daemon.service	Change appearance and restore wallpapers	all	Installed	Planned	Prior VM integration evidence exists; explicit-profile installation and lifecycle need renewed acceptance	Composition	-	services/desktop/CHECKLIST.md
+wallpaper-selection	awww	workstation-wallpaper	helper:workstation-wallpaper	Change appearance and restore wallpapers	all	Installed	Planned	Prior VM integration evidence exists; explicit-profile installation and lifecycle need renewed acceptance	Composition	-	services/desktop/CHECKLIST.md
+wallpaper-keybinding	awww	workstation-wallpaper	hypr:binding	Change appearance and restore wallpapers	all	Installed	Planned	Prior VM integration evidence exists; explicit-profile installation and lifecycle need renewed acceptance	Composition	-	services/desktop/CHECKLIST.md
+clipboard-persistence	wl-clip-persist	wl-clip-persist	systemd-user:wl-clip-persist.service	Copy and reuse text or symbols	all	Installed	Planned	Prior VM integration evidence exists; explicit-profile installation and lifecycle need renewed acceptance	Composition	-	services/desktop/CHECKLIST.md
+vm-shared-clipboard	virtualbox-guest-utils	VBoxClient	systemd-user:vboxclient-clipboard.service	Develop and validate in VirtualBox	vm	Planned	Planned	Prior guest behavior accepted; newly separated profile has not been deployed; VM-only capability	Composition	-	services/desktop/CHECKLIST.md
+vm-display-assistant	virtualbox-guest-utils	VBoxClient	systemd-user:vboxclient-vmsvga.service	Develop and validate in VirtualBox	vm	Planned	Planned	Prior guest behavior accepted; newly separated profile has not been deployed; VM-only capability	Composition	-	services/desktop/CHECKLIST.md
+lock-screen	quickshell	session-lock	hypr:binding	Protect the session while away or asleep	all	Installed	Planned	Component observed in VM; complete current workflow and explicit-profile deployment need verification	Composition	-	services/desktop/CHECKLIST.md
+idle-lock	hypridle	hypridle	systemd-user:hypridle.service	Protect the session while away or asleep	all	Installed	Planned	Component observed in VM; complete current workflow and explicit-profile deployment need verification	Composition	-	services/desktop/CHECKLIST.md
+protected-suspend	go	workstation-suspend	helper:workstation-suspend	Protect the session while away or asleep	all	Planned	Planned	Current presentation/adapter source is present; earlier shell evidence does not accept this replacement	Composition	-	services/desktop/CHECKLIST.md
+theme-selection	jq	workstation-theme	helper:workstation-theme	Change appearance and restore wallpapers	all	Installed	Planned	Prior VM integration evidence exists; explicit-profile installation and lifecycle need renewed acceptance	Composition	-	services/desktop/CHECKLIST.md
+theme-keybinding	jq	workstation-theme	hypr:binding	Change appearance and restore wallpapers	all	Installed	Planned	Prior VM integration evidence exists; explicit-profile installation and lifecycle need renewed acceptance	Composition	-	services/desktop/CHECKLIST.md
+screenshot	hyprshot	workstation-capture	hypr:binding	Capture and transform media or share files	all	Installed	Planned	Prior VM integration evidence exists; explicit-profile installation and lifecycle need renewed acceptance	Composition	-	services/productivity/README.md
+color-picker	hyprpicker	workstation-capture	helper:workstation-capture	Capture and transform media or share files	all	Installed	Planned	Prior VM integration evidence exists; explicit-profile installation and lifecycle need renewed acceptance	Composition	-	services/productivity/README.md
+screen-recording	wf-recorder	workstation-record	helper:workstation-record	Capture and transform media or share files	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/productivity/README.md
+screen-ocr	tesseract	workstation-media	helper:workstation-media	Capture and transform media or share files	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/productivity/README.md
+ocr-english	tesseract-data-eng	workstation-media	helper:workstation-media	Capture and transform media or share files	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/productivity/README.md
+ocr-portuguese	tesseract-data-por	workstation-media	helper:workstation-media	Capture and transform media or share files	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/productivity/README.md
+qr-reader	zbar	workstation-media	helper:workstation-media	Capture and transform media or share files	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/productivity/README.md
+qr-generator	qrencode	workstation-media	helper:workstation-media	Capture and transform media or share files	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/productivity/README.md
+image-conversion	imagemagick	workstation-media	helper:workstation-media	Capture and transform media or share files	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/productivity/README.md
+media-conversion	ffmpeg	workstation-media	helper:workstation-media	Capture and transform media or share files	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/productivity/README.md
+file-sharing	wl-clipboard	workstation-media	helper:workstation-media	Capture and transform media or share files	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/productivity/README.md
+reminders	libnotify	workstation-remind	helper:workstation-remind	Manage focus time and reminders	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/productivity/README.md
+desktop-utilities	walker-bin	session-walker	hypr:binding	Navigate the desktop and open applications	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Compatibility Shim	Client-scoped software rendering only in the explicitly selected vm profile; native rendering on physical hardware	services/desktop/CHECKLIST.md
+control-menu-theme	jq	workstation-theme	menu:workstation.toml	Change appearance and restore wallpapers	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+control-menu-wallpaper	awww	workstation-wallpaper	menu:workstation.toml	Change appearance and restore wallpapers	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+control-menu-shortcuts	hyprland	workstation-keybindings	menu:workstation.toml	Inspect and maintain the workstation	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+control-menu-audio	quickshell	workstation-controls	menu:workstation.toml	Adjust audio and control playback	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+control-menu-network	network-manager-applet	workstation-controls	menu:workstation.toml	Configure networking and reach trusted remote machines	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+control-menu-search	walker-bin	walker	menu:workstation.toml	Navigate the desktop and open applications	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+control-menu-notifications	dunst	dunstctl	menu:workstation-notifications.toml	Read notifications and control interruptions	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+control-menu-capture	hyprshot	workstation-capture	menu:workstation-capture.toml	Capture and transform media or share files	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/productivity/README.md
+control-menu-browser	zen-browser-bin	zen-browser	menu:workstation-tools.toml	Navigate the desktop and open applications	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+control-menu-terminal	ghostty	session-terminal	menu:workstation-tools.toml	Navigate the desktop and open applications	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Compatibility Shim	Client-scoped software rendering only in the explicitly selected vm profile; native rendering on physical hardware	services/desktop/CHECKLIST.md
+system-monitor	btop	btop	menu:workstation-tools.toml	Inspect and maintain the workstation	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+terminal-files	yazi	yazi	menu:workstation-tools.toml	Navigate the desktop and open applications	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+terminal-editor	neovim	nvim	menu:workstation-tools.toml	Navigate the desktop and open applications	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+clipboard-history	elephant-clipboard	walker	hypr:binding	Copy and reuse text or symbols	all	Installed	Planned	Component observed in VM; complete current workflow and explicit-profile deployment need verification	Composition	-	services/desktop/CHECKLIST.md
+symbol-picker	elephant-symbols	walker	hypr:binding	Copy and reuse text or symbols	all	Installed	Planned	Component observed in VM; complete current workflow and explicit-profile deployment need verification	Composition	-	services/desktop/CHECKLIST.md
+window-switcher	elephant-windows	walker	hypr:binding	Navigate the desktop and open applications	all	Installed	Planned	Component observed in VM; complete current workflow and explicit-profile deployment need verification	Composition	-	services/desktop/CHECKLIST.md
+browser-keybinding	zen-browser-bin	zen-browser	hypr:binding	Navigate the desktop and open applications	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+shortcut-reference	hyprland	workstation-keybindings	hypr:binding	Navigate the desktop and open applications	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+project-launcher	ghostty	workstation-project	hypr:binding	Work on projects and run coding agents	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+agent-status	time	workstation-agent	helper:workstation-agent	Work on projects and run coding agents	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/development/README.md
+workstation-diagnosis	systemd	workstation-doctor	helper:workstation-doctor	Inspect and maintain the workstation	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/recovery/README.md
+file-backup	restic	workstation-backup	helper:workstation-backup	Back up and recover personal files	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/recovery/README.md
+update-checkpoints	blend	workstation-maintain	helper:workstation-maintain	Inspect and maintain the workstation	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/recovery/README.md
+firmware-inspection	fwupd	workstation-doctor	helper:workstation-doctor	Inspect and maintain the workstation	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/recovery/README.md
+desktop-settings	jq	workstation-controls	hypr:binding	Inspect and maintain the workstation	all	Planned	Planned	Current presentation/adapter source is present; earlier shell evidence does not accept this replacement	Composition	-	services/desktop/CHECKLIST.md
+directory-default	nemo	nemo	xdg-default:nemo.desktop	Open files with consistent defaults	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+image-viewer	imv	imv	xdg-default:imv.desktop	Open files with consistent defaults	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+document-viewer	zathura	zathura	xdg-default:org.pwmt.zathura.desktop	Open files with consistent defaults	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+pdf-backend	zathura-pdf-mupdf	zathura	xdg-default:org.pwmt.zathura.desktop	Open files with consistent defaults	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+media-player	mpv	mpv	xdg-default:mpv.desktop	Open files with consistent defaults	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+policy-agent	hyprpolkitagent	/usr/lib/hyprpolkitagent/hyprpolkitagent	systemd-user:hyprpolkitagent.service	Authorize operations and share files or the desktop	all	Installed	Planned	Component observed in VM; complete current workflow and explicit-profile deployment need verification	Composition	-	services/desktop/CHECKLIST.md
+portal	xdg-desktop-portal-hyprland	/usr/lib/xdg-desktop-portal-hyprland	dbus-user:xdg-desktop-portal-hyprland.service	Authorize operations and share files or the desktop	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+network-applet	network-manager-applet	nm-applet	xdg-autostart:nm-applet.desktop	Configure networking and reach trusted remote machines	all	Installed	Planned	Component observed in VM; complete current workflow and explicit-profile deployment need verification	Composition	-	services/desktop/CHECKLIST.md
+network-editor	network-manager-applet	workstation-controls	menu:workstation.toml	Configure networking and reach trusted remote machines	all	Installed	Planned	Component observed in VM; complete current workflow and explicit-profile deployment need verification	Composition	-	services/desktop/CHECKLIST.md
+browser	zen-browser-bin	zen-browser	xdg-default:zen.desktop	Navigate the desktop and open applications	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+host-firewall	ufw	ufw	system-service:ufw	Configure networking and reach trusted remote machines	all	Planned	Planned	Source implementation present; installed workflow acceptance pending	Composition	-	services/desktop/CHECKLIST.md
+remote-overlay-network	tailscale	tailscale	system-service:tailscaled	Configure networking and reach trusted remote machines	all	Installed	Planned	Component observed in VM; complete current workflow and explicit-profile deployment need verification	Composition	-	services/desktop/CHECKLIST.md
+remote-desktop	rustdesk-unattended-wayland	rustdesk	system-service:rustdesk.service	Configure networking and reach trusted remote machines	all	Blocked	Blocked	Known locked-connection capture failure; owner-deferred diagnosis; requires reviewed native package	Compatibility Shim	Native Arch packaging stages the upstream DRM variant without a RustDesk source fork	services/rustdesk/README.md
+graphical-login	greetd	greetd	system-service:greetd.service	Sign in to the workstation	all	Planned	Planned	Current presentation/adapter source is present; earlier shell evidence does not accept this replacement	Composition	-	services/desktop/CHECKLIST.md
+login-greeter	quickshell	/etc/blendos-workstation/identity/greeter-host	system-service:greetd.service	Sign in to the workstation	all	Planned	Planned	Current presentation/adapter source is present; earlier shell evidence does not accept this replacement	Composition	-	services/desktop/CHECKLIST.md
+container-engine	podman	podman	rootless-user:podman.socket	Run local development services without Docker	all	Installed	Planned	Component observed in VM; complete current workflow and explicit-profile deployment need verification	Composition	-	services/desktop/CHECKLIST.md
+compose-provider	podman-compose	podman-compose	podman:compose-provider	Run local development services without Docker	all	Installed	Planned	Component observed in VM; complete current workflow and explicit-profile deployment need verification	Composition	-	services/desktop/CHECKLIST.md
+development-routes	mise	portless-compose	helper:portless-compose	Run local development services without Docker	all	Planned	Planned	Existing loopback .localhost workflow; complete provisioning was absent in the disposable VM receipt	Compatibility Shim	Pinned Portless 0.15.6 bind patch removes its privileged-port assumption; exact-source checks fail closed	services/portless/README.md
+git-identities	git	git-profile	helper:git-profile	Commit with the intended public or work identity	all	Planned	Planned	Explicit identity profiles and directory mappings are Local State; configure personally	Composition	-	README.md#git-identity-profiles

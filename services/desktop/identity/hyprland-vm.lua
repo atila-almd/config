@@ -1,5 +1,5 @@
 -- VirtualBox-only pre-login monitor profile. The host wrapper selects this
--- file from DMI and keeps physical displays on their preferred mode.
+-- file from the explicit vm Machine Profile; physical displays use preferred mode.
 hl.monitor({
     output = "",
     mode = "1920x1080@60",

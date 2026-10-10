@@ -7,6 +7,8 @@ export QT_QUICK_CONTROLS_STYLE=Basic QT_QUICK_BACKEND=software
 runtime="$(mktemp -d)"
 trap 'rm -rf -- "$runtime"' EXIT
 mkdir "$runtime/commands"
+printf "vm\n" > "$runtime/oracle-profile"
+printf "physical\n" > "$runtime/none-profile"
 cat > "$runtime/commands/systemd-detect-virt" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$TEST_VIRT"
@@ -37,7 +39,7 @@ chmod +x "$runtime/commands/"*
 export TEST_RESULT="$runtime/result"
 for virt in oracle none; do
   env -u QT_QUICK_BACKEND -u LIBGL_ALWAYS_SOFTWARE -u GALLIUM_DRIVER \
-    PATH="$runtime/commands:$PATH" TEST_VIRT="$virt" \
+    PATH="$runtime/commands:$PATH" BLENDOS_WORKSTATION_PROFILE_FILE="$runtime/$virt-profile" \
     bash "$repo_dir/bin/session-workstation-shell" --run
   if [[ "$virt" == oracle ]]; then
     grep -Fxq 'software|true|llvmpipe|-c workstation' "$TEST_RESULT"
@@ -47,7 +49,7 @@ for virt in oracle none; do
 done
 for virt in oracle none; do
   env -u QT_QUICK_BACKEND -u LIBGL_ALWAYS_SOFTWARE -u GALLIUM_DRIVER \
-    PATH="$runtime/commands:$PATH" TEST_VIRT="$virt" \
+    PATH="$runtime/commands:$PATH" BLENDOS_WORKSTATION_PROFILE_FILE="$runtime/$virt-profile" \
     bash "$repo_dir/bin/session-workstation-lock" --run
   if [[ "$virt" == oracle ]]; then
     grep -Fxq 'software|true|llvmpipe|-c workstation-lock' "$TEST_RESULT"

@@ -1,0 +1,14 @@
+# This is a template, not an enabled physical Machine Profile.
+# Fill this only after the owner supplies the actual hardware and approves
+# its packages/services. No CPU, GPU, wireless or firmware is inferred.
+profile: physical
+ready: false
+hardware:
+  form: OWNER_REQUIRED
+  cpu: OWNER_REQUIRED
+  graphics: OWNER_REQUIRED
+  wifi: OWNER_REQUIRED_OR_NONE
+  bluetooth: OWNER_REQUIRED_OR_NONE
+  firmware: OWNER_REQUIRED_OR_NONE
+packages: []
+services: []

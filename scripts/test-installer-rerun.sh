@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+export BLENDOS_WORKSTATION_MACHINE_PROFILE=vm
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 test_dir="$(mktemp -d)"
 trap 'rm -rf -- "$test_dir"' EXIT
@@ -57,7 +58,7 @@ fi
 export BLENDOS_WORKSTATION_SYSTEM_PATH="$test_dir/root-system.yaml"
 export BLENDOS_WORKSTATION_TEST_NO_SUDO=1
 bash "$repo_dir/install.sh" --system-only > "$test_dir/system-first.log"
-[[ "$(readlink -f "$test_dir/root-system.yaml")" == "$repo_dir/system.yaml" ]]
+[[ "$(readlink -f "$test_dir/root-system.yaml")" == "$test_dir/state/blendos-workstation/machine/system.yaml" ]]
 bash "$repo_dir/install.sh" --system-only > "$test_dir/system-second.log"
 if grep -q 'Backed up' "$test_dir/system-second.log"; then
   printf 'ERROR: unchanged system-only rerun displaced files\n' >&2
@@ -122,3 +123,25 @@ grep -Fxq 'personal terminal settings' "$test_dir/home/.config/ghostty/config.gh
 grep -Fxq 'unmanaged terminal notes' "$test_dir/home/.config/ghostty/original"
 [[ -L "$test_dir/managed-ghostty-link" ]]
 printf 'Scoped backup restore passed; unrelated files and managed link preserved.\n'
+
+# A profile change needs system staging first; home-only may not silently select it.
+if bash "$repo_dir/install.sh" --home-only --profile physical >/dev/null 2>&1; then
+  printf 'ERROR: home-only switched the hardware profile\n' >&2; exit 1
+fi
+bash "$repo_dir/install.sh" --system-only --profile physical > "$test_dir/physical-system.log"
+printf 'physical\n' > "$test_dir/state/blendos-workstation/machine/profile"
+bash "$repo_dir/install.sh" --home-only --profile physical > "$test_dir/physical-home.log"
+for path in .config/autostart/vboxclient.desktop .config/systemd/user/vboxclient-clipboard.service .config/systemd/user/vboxclient-vmsvga.service .config/systemd/user/blendos-workstation-session.target.d/20-machine-profile.conf; do
+  [[ ! -e "$test_dir/home/$path" && ! -L "$test_dir/home/$path" ]]
+done
+find "$test_dir/state" -path '*/backups/*' -name vboxclient-vmsvga.service | grep -q .
+python3 - "$test_dir/state/blendos-workstation/machine/system.yaml" <<'PY'
+import sys,yaml
+d=yaml.safe_load(open(sys.argv[1]))
+assert 'nvidia-open-dkms' in d['packages']
+assert 'virtualbox-guest-utils' not in d['packages']
+assert 'vboxservice' not in d['services']
+PY
+bash "$repo_dir/install.sh" --home-only --profile physical > "$test_dir/physical-rerun.log"
+! grep -q 'Backed up' "$test_dir/physical-rerun.log"
+printf 'Physical deployment excludes VM components and preserves their backups.\n'
